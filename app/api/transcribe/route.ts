@@ -1,67 +1,97 @@
-import { experimental_transcribe as transcribe } from "ai"
-import { openai } from "@ai-sdk/openai"
+import { NextRequest, NextResponse } from "next/server"
+import OpenAI from "openai"
 
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || "",
+})
+
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
-const ENABLE_SERVER_TRANSCRIBE = process.env.ENABLE_SERVER_TRANSCRIBE === "1"
-
-export async function POST(req: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const contentType = req.headers.get("content-type") || ""
-    if (!contentType.includes("multipart/form-data")) {
-      return new Response("Expected multipart/form-data", { status: 400 })
+    // Check if API key is configured
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json(
+        { error: "OpenAI API key not configured. Please add OPENAI_API_KEY to your environment variables." },
+        { status: 500 }
+      )
     }
 
-    const form = await req.formData()
-    const file = form.get("audio")
-    if (!file || !(file instanceof File)) {
-      return new Response("Missing audio file", { status: 400 })
+    // Get audio file from form data
+    const formData = await request.formData()
+    const audioFile = formData.get("audio") as File
+
+    if (!audioFile) {
+      return NextResponse.json({ error: "No audio file provided" }, { status: 400 })
     }
 
-    const arrayBuffer = await file.arrayBuffer()
-    const bytes = new Uint8Array(arrayBuffer)
-    const mime = file.type || "audio/webm"
-
-    const approxSize = (file as any).size ?? bytes.length
-    if (!approxSize || approxSize < 50) {
-      // Tiny/empty recording; allow text-only path with a clear hint
-      return Response.json({
-        text: "",
-        warning: "No speech detected in recording. You can type your transcript and continue.",
-      })
+    // Check file size
+    if (audioFile.size < 50) {
+      return NextResponse.json(
+        { error: "Audio file is too small or empty" },
+        { status: 400 }
+      )
     }
 
-    const audioBlob = new Blob([bytes], { type: mime })
+    // Convert File to proper format for OpenAI
+    const arrayBuffer = await audioFile.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
 
-    if (!ENABLE_SERVER_TRANSCRIBE) {
-      return Response.json({
-        text: "",
-        warning:
-          "Server transcription is disabled in free mode. Use Browser Transcription or paste your transcript and continue.",
-      })
-    }
+    // Create a File object with proper structure
+    const file = new File([buffer], audioFile.name || "audio.mp3", {
+      type: audioFile.type || "audio/mpeg",
+    })
 
-    const result = await transcribe({
-      model: openai.transcription("whisper-1"),
-      audio: audioBlob,
+    console.log(`Transcribing audio file: ${file.name} (${file.size} bytes)`)
+
+    // Use OpenAI Whisper API directly (FAST transcription - 2-3 seconds!)
+    const transcription = await openai.audio.transcriptions.create({
+      file: file,
+      model: "whisper-1",
       language: "en",
+      response_format: "text",
     })
 
-    const text = (result.text || "").trim()
-    return Response.json({
-      text,
-      ...(text
-        ? {}
-        : {
-            warning: "Transcription returned empty text. You can edit/type a transcript and proceed.",
-          }),
+    const transcribedText = typeof transcription === "string" ? transcription : transcription.toString()
+
+    console.log(`Transcription result: ${transcribedText.substring(0, 100)}...`)
+
+    if (!transcribedText || transcribedText.trim().length < 5) {
+      return NextResponse.json(
+        { error: "Could not extract speech from audio file. Please ensure the audio contains clear speech." },
+        { status: 400 }
+      )
+    }
+
+    return NextResponse.json({
+      text: transcribedText.trim(),
     })
-  } catch (e: any) {
-    console.error("[v0] Transcribe error:", e?.message || e)
-    const msg =
-      typeof e?.message === "string" && /insufficient_quota|429/i.test(e.message)
-        ? "Transcription provider quota exceeded. Please use Browser Transcription or paste your transcript."
-        : "Transcription is currently unavailable. Use Browser Transcription or paste your transcript."
-    return Response.json({ text: "", warning: msg })
+  } catch (error: any) {
+    console.error("Transcription error:", error)
+    
+    // Handle specific OpenAI errors
+    if (error?.status === 401) {
+      return NextResponse.json(
+        { error: "Invalid OpenAI API key. Please check your OPENAI_API_KEY environment variable." },
+        { status: 500 }
+      )
+    }
+    
+    if (error?.status === 429) {
+      return NextResponse.json(
+        { error: "OpenAI API rate limit exceeded. Please try again in a moment." },
+        { status: 429 }
+      )
+    }
+
+    return NextResponse.json(
+      {
+        error: error?.message || "Failed to transcribe audio. Please try again.",
+      },
+      { status: 500 }
+    )
   }
 }

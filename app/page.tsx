@@ -61,164 +61,52 @@ export default function Page() {
     setError(null)
 
     try {
+      // Create FormData for file upload
+      const formData = new FormData()
+      formData.append("audio", file)
+
       setVoiceAStatus("processing")
 
-      // Use Web Speech API to transcribe the audio file in browser
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-      const arrayBuffer = await file.arrayBuffer()
-      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
-      
-      // Create an offline context to play the audio faster for quicker transcription
-      const offlineContext = new OfflineAudioContext(
-        audioBuffer.numberOfChannels,
-        audioBuffer.length,
-        audioBuffer.sampleRate
-      )
-      
-      const source = offlineContext.createBufferSource()
-      source.buffer = audioBuffer
-      source.connect(offlineContext.destination)
-      source.start()
-      
-      // Convert audio to WAV blob for better compatibility
-      const renderedBuffer = await offlineContext.startRendering()
-      const wavBlob = await audioBufferToWav(renderedBuffer)
-      
-      // Create audio element and use Web Speech API
-      const audioUrl = URL.createObjectURL(wavBlob)
-      const audio = new Audio(audioUrl)
-      
-      // Set up speech recognition
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-      
-      if (!SpeechRecognition) {
-        throw new Error("Speech recognition not supported. Please use Chrome, Edge, or Brave browser.")
-      }
-      
-      const recognition = new SpeechRecognition()
-      recognition.continuous = true
-      recognition.interimResults = false
-      recognition.lang = 'en-US'
-      
-      let transcribedText = ""
-      
-      // Listen for results
-      recognition.onresult = (event: any) => {
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            transcribedText += event.results[i][0].transcript + ' '
-          }
-        }
-      }
-      
-      recognition.onerror = (event: any) => {
-        console.error("Recognition error:", event.error)
-        URL.revokeObjectURL(audioUrl)
-        throw new Error(`Speech recognition failed: ${event.error}`)
-      }
-      
-      recognition.onend = async () => {
-        URL.revokeObjectURL(audioUrl)
-        
-        const finalTranscript = transcribedText.trim()
-        
-        if (!finalTranscript) {
-          throw new Error("Could not extract speech from audio file")
-        }
-        
-        // Now evaluate the transcribed text (user never sees this)
-        const evaluateRes = await fetch("/api/refine-score", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            transcript: finalTranscript,
-            keywords: [],
-            isSpeechInput: true,
-          }),
-        })
+      // Upload and transcribe voiceA using OpenAI Whisper (FAST - 2-3 seconds!)
+      const transcribeRes = await fetch("/api/transcribe", {
+        method: "POST",
+        body: formData,
+      })
 
-        if (!evaluateRes.ok) {
-          throw new Error("Failed to evaluate audio")
-        }
+      if (!transcribeRes.ok) {
+        const errorData = await transcribeRes.json()
+        throw new Error(errorData.error || "Failed to process audio file")
+      }
 
-        const result = await evaluateRes.json()
-        setVoiceAResult(result)
-        setVoiceAStatus("completed")
+      const { text } = await transcribeRes.json()
+
+      if (!text || text.trim().length < 5) {
+        throw new Error("Could not extract speech from audio file")
       }
-      
-      // Start recognition and play audio
-      recognition.start()
-      audio.play()
-      
-      // Stop recognition when audio ends
-      audio.onended = () => {
-        setTimeout(() => {
-          recognition.stop()
-        }, 500) // Small delay to catch final words
+
+      // Evaluate voiceA (speech-based) - user never sees the transcript
+      const evaluateRes = await fetch("/api/refine-score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transcript: text,
+          keywords: [],
+          isSpeechInput: true,
+        }),
+      })
+
+      if (!evaluateRes.ok) {
+        throw new Error("Failed to evaluate audio")
       }
-      
+
+      const result = await evaluateRes.json()
+      setVoiceAResult(result)
+      setVoiceAStatus("completed")
     } catch (err) {
       console.error("VoiceA processing error:", err)
-      setError(err instanceof Error ? err.message : "Failed to process audio file. Please ensure you're using Chrome, Edge, or Brave browser.")
+      setError(err instanceof Error ? err.message : "Failed to process audio")
       setVoiceAStatus("error")
     }
-  }
-
-  // Helper function to convert AudioBuffer to WAV
-  const audioBufferToWav = async (buffer: AudioBuffer): Promise<Blob> => {
-    const numberOfChannels = buffer.numberOfChannels
-    const length = buffer.length * numberOfChannels * 2
-    const arrayBuffer = new ArrayBuffer(44 + length)
-    const view = new DataView(arrayBuffer)
-    const channels = []
-    let offset = 0
-    let pos = 0
-
-    // Write WAV header
-    const setUint16 = (data: number) => {
-      view.setUint16(pos, data, true)
-      pos += 2
-    }
-    const setUint32 = (data: number) => {
-      view.setUint32(pos, data, true)
-      pos += 4
-    }
-
-    // "RIFF" chunk descriptor
-    setUint32(0x46464952) // "RIFF"
-    setUint32(36 + length) // file length - 8
-    setUint32(0x45564157) // "WAVE"
-
-    // "fmt " sub-chunk
-    setUint32(0x20746d66) // "fmt "
-    setUint32(16) // subchunk1size (16 for PCM)
-    setUint16(1) // audio format (1 for PCM)
-    setUint16(numberOfChannels)
-    setUint32(buffer.sampleRate)
-    setUint32(buffer.sampleRate * 2 * numberOfChannels) // byte rate
-    setUint16(numberOfChannels * 2) // block align
-    setUint16(16) // bits per sample
-
-    // "data" sub-chunk
-    setUint32(0x61746164) // "data"
-    setUint32(length)
-
-    // Write interleaved data
-    for (let i = 0; i < buffer.numberOfChannels; i++) {
-      channels.push(buffer.getChannelData(i))
-    }
-
-    while (pos < arrayBuffer.byteLength) {
-      for (let i = 0; i < numberOfChannels; i++) {
-        let sample = Math.max(-1, Math.min(1, channels[i][offset]))
-        sample = sample < 0 ? sample * 0x8000 : sample * 0x7fff
-        view.setInt16(pos, sample, true)
-        pos += 2
-      }
-      offset++
-    }
-
-    return new Blob([arrayBuffer], { type: 'audio/wav' })
   }
 
   // Clear voiceA upload
