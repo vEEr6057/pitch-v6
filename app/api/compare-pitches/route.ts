@@ -99,6 +99,7 @@ Score them and explain the differences.`
       ],
       temperature: 0.3,
       max_tokens: 1500,
+      response_format: { type: "json_object" }, // Force JSON response
     })
 
     const aiResponse = completion.choices[0]?.message?.content?.trim() || ""
@@ -107,12 +108,16 @@ Score them and explain the differences.`
     console.log(aiResponse)
     console.log("===================")
     
-    // Clean up AI response - remove markdown code blocks if present
+    // Clean up AI response - handle multiple formats
     let cleanedResponse = aiResponse
-    if (cleanedResponse.startsWith('```json')) {
-      cleanedResponse = cleanedResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '')
-    } else if (cleanedResponse.startsWith('```')) {
-      cleanedResponse = cleanedResponse.replace(/```\n?/g, '')
+    
+    // Remove markdown code blocks
+    cleanedResponse = cleanedResponse.replace(/```json\s*/g, '').replace(/```\s*/g, '')
+    
+    // Try to extract JSON if there's text before/after
+    const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      cleanedResponse = jsonMatch[0]
     }
     
     console.log("=== Cleaned Response ===")
@@ -120,7 +125,16 @@ Score them and explain the differences.`
     console.log("========================")
     
     // Parse AI response
-    const parsedResponse: ComparisonScores = JSON.parse(cleanedResponse)
+    let parsedResponse: ComparisonScores
+    try {
+      parsedResponse = JSON.parse(cleanedResponse)
+    } catch (parseError: any) {
+      console.error("=== JSON Parse Error ===")
+      console.error(parseError.message)
+      console.error("Failed to parse:", cleanedResponse.substring(0, 500))
+      console.error("========================")
+      throw new Error(`Failed to parse AI response: ${parseError.message}`)
+    }
     
     console.log("=== Parsed Successfully ===")
     console.log(JSON.stringify(parsedResponse, null, 2))
