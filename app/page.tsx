@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import ScoreChart from "@/components/score-chart"
-import SpeechRecognition from "@/components/speech-recognition"
+import AudioRecorderAssemblyAI from "@/components/audio-recorder-assemblyai"
 
 // Define interfaces for better type organization
 interface Scores {
@@ -339,7 +339,7 @@ export default function Page() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-4 md:p-6">
-          <SpeechRecognition onTranscript={handleSpeechTranscript} />
+          <AudioRecorderAssemblyAI onTranscript={handleSpeechTranscript} />
         </CardContent>
       </Card>
 
