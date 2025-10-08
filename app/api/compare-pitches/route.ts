@@ -25,10 +25,14 @@ interface ComparisonScores {
 export const maxDuration = 60
 
 export async function POST(req: Request): Promise<Response> {
+  // Store transcripts at the start
+  let voiceATranscript = ""
+  let voiceBTranscript = ""
+  
   try {
     const body = await req.json()
-    const voiceATranscript = body.voiceATranscript || ""
-    const voiceBTranscript = body.voiceBTranscript || ""
+    voiceATranscript = body.voiceATranscript || ""
+    voiceBTranscript = body.voiceBTranscript || ""
 
     if (!voiceATranscript || !voiceBTranscript) {
       return Response.json({ error: "Both transcripts required" }, { status: 400 })
@@ -99,8 +103,16 @@ Score them and explain the differences.`
 
     const aiResponse = completion.choices[0]?.message?.content?.trim() || ""
     
+    // Clean up AI response - remove markdown code blocks if present
+    let cleanedResponse = aiResponse
+    if (cleanedResponse.startsWith('```json')) {
+      cleanedResponse = cleanedResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '')
+    } else if (cleanedResponse.startsWith('```')) {
+      cleanedResponse = cleanedResponse.replace(/```\n?/g, '')
+    }
+    
     // Parse AI response
-    const parsedResponse: ComparisonScores = JSON.parse(aiResponse)
+    const parsedResponse: ComparisonScores = JSON.parse(cleanedResponse)
 
     // Clamp scores to 0-100
     const clamp = (n: number) => Math.round(Math.max(0, Math.min(100, n)))
@@ -125,10 +137,15 @@ Score them and explain the differences.`
 
   } catch (error: any) {
     console.error("Comparison error:", error)
-    // Fallback if AI fails
-    const voiceATranscript = (await req.json()).voiceATranscript
-    const voiceBTranscript = (await req.json()).voiceBTranscript
-    return fallbackComparison(voiceATranscript, voiceBTranscript)
+    console.error("Error details:", error.message)
+    // Use stored transcripts for fallback
+    if (voiceATranscript && voiceBTranscript) {
+      return fallbackComparison(voiceATranscript, voiceBTranscript)
+    }
+    return Response.json(
+      { error: `Comparison failed: ${error.message}` },
+      { status: 500 }
+    )
   }
 }
 
