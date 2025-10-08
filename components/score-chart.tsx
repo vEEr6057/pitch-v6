@@ -1,6 +1,6 @@
 "use client"
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { FC } from "react"
 
 // Define interface for the data point
@@ -11,30 +11,31 @@ interface Point {
 
 // Define interface for component props
 interface ScoreChartProps {
-  data: Point[];
+  voiceAData: Point[];
+  voiceBData: Point[];
 }
 
 // Use FC (FunctionComponent) type for better typing
-const ScoreChart: FC<ScoreChartProps> = ({ data }) => {
-  // Create custom display labels while preserving original metrics
-  const mobileData = data.map((item: Point) => ({
+const ScoreChart: FC<ScoreChartProps> = ({ voiceAData, voiceBData }) => {
+  // Combine data for comparison
+  const combinedData = voiceAData.map((item, index) => ({
     metric: item.metric
       .replace("Usage of Keywords", "Keywords")
       .replace("Pronunciation", "Delivery")
       .replace("Objection Handling", "Addressing")
       .replace("Query Resolution", "Solution"),
-    score: item.score,
-    fullMetric: item.metric, // Keep original for hover tooltip
-    originalName: item.metric // Store the original parameter name
+    fullMetric: item.metric,
+    voiceA: item.score,
+    voiceB: voiceBData[index].score,
   }));
   
   return (
-    <div className="h-[450px] w-full">
+    <div className="h-[400px] md:h-[500px] w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart 
-          data={mobileData} 
+          data={combinedData} 
           margin={{ top: 20, right: 10, bottom: 60, left: 10 }} 
-          barSize={40}
+          barSize={30}
         >
           <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
           <XAxis
@@ -58,13 +59,9 @@ const ScoreChart: FC<ScoreChartProps> = ({ data }) => {
             width={30}
           />
           <Tooltip
-            formatter={(value: number | string, name: string, props: any): [string, string] => {
-              // Get the display name and original parameter name
-              const displayName = props.payload?.metric || "";
-              const originalName = props.payload?.originalName || "";
-              
-              // Return the display name as label and value with original parameter for context
-              return [`${value}`, `${displayName} (${originalName})`];
+            formatter={(value: number, name: string) => {
+              const displayName = name === "voiceA" ? "Reference Pitch" : "Your Pitch";
+              return [`${value}`, displayName];
             }}
             contentStyle={{
               background: "var(--color-popover)",
@@ -77,17 +74,37 @@ const ScoreChart: FC<ScoreChartProps> = ({ data }) => {
             }}
             labelStyle={{fontWeight: "bold"}}
           />
+          <Legend 
+            wrapperStyle={{
+              paddingTop: "20px",
+              fontSize: "14px"
+            }}
+            formatter={(value) => {
+              return value === "voiceA" ? "Reference Pitch" : "Your Pitch";
+            }}
+          />
           <Bar
-            dataKey="score"
-            name="Score"
-            fill="var(--color-chart-1)"
-            stroke="var(--color-chart-1)"
-            maxBarSize={60}
+            dataKey="voiceA"
+            name="voiceA"
+            fill="#3b82f6"
             radius={[4, 4, 0, 0]}
             label={{ 
               position: 'top',
-              fill: 'var(--color-muted-foreground)',
-              fontSize: 12
+              fill: '#3b82f6',
+              fontSize: 11,
+              fontWeight: 600
+            }}
+          />
+          <Bar
+            dataKey="voiceB"
+            name="voiceB"
+            fill="#10b981"
+            radius={[4, 4, 0, 0]}
+            label={{ 
+              position: 'top',
+              fill: '#10b981',
+              fontSize: 11,
+              fontWeight: 600
             }}
           />
         </BarChart>
