@@ -46,60 +46,38 @@ export async function POST(req: Request): Promise<Response> {
 
     // Use AI to compare both pitches side-by-side
     const completion = await groq.chat.completions.create({
-      model: "llama-3.1-70b-versatile",
+      model: "llama-3.1-8b-instant", // Faster, more reliable model
       messages: [
         {
           role: "system",
-          content: `You are an expert sales pitch evaluator. Compare TWO pitch transcripts and score them on these exact criteria:
+          content: `You are a sales pitch scorer. Return ONLY valid JSON, no other text.
 
-1. usageOfKeywords (0-100): How well does the pitch use relevant product/service keywords and benefits?
-2. pronunciation (0-100): Grammar quality, professional language, clear phrasing (based on text quality)
-3. fluency (0-100): Flow, coherence, logical structure
-4. objectionHandling (0-100): Does it anticipate concerns and address benefits proactively?
-5. queryResolution (0-100): How complete and informative is the pitch?
+Score both pitches (0-100) on:
+- usageOfKeywords: product keywords and benefits
+- pronunciation: grammar and clarity
+- fluency: flow and structure
+- objectionHandling: addresses concerns
+- queryResolution: completeness
 
-CRITICAL RULES:
-- Give DIFFERENT scores based on actual quality differences
-- Detect grammar errors, awkward phrasing, unclear statements
-- Score lower for poor grammar, score higher for clarity
-- Don't give identical scores unless truly equal quality
-- Respond ONLY with raw JSON, no markdown, no code blocks, no explanation outside the JSON
-
-JSON format (EXACTLY this structure):
+JSON format:
 {
-  "voiceA": {
-    "usageOfKeywords": 75,
-    "pronunciation": 85,
-    "fluency": 90,
-    "objectionHandling": 70,
-    "queryResolution": 80
-  },
-  "voiceB": {
-    "usageOfKeywords": 65,
-    "pronunciation": 70,
-    "fluency": 75,
-    "objectionHandling": 65,
-    "queryResolution": 70
-  },
-  "reasoning": "Voice A is clearer and more professional. Voice B has grammar issues like..."
+  "voiceA": {"usageOfKeywords": 75, "pronunciation": 85, "fluency": 90, "objectionHandling": 70, "queryResolution": 80},
+  "voiceB": {"usageOfKeywords": 65, "pronunciation": 70, "fluency": 75, "objectionHandling": 65, "queryResolution": 70},
+  "reasoning": "explanation here"
 }`
         },
         {
           role: "user",
-          content: `Compare these two pitches:
+          content: `Score these pitches:
 
-**Voice A (Reference Pitch):**
-"${voiceATranscript}"
+Voice A: ${voiceATranscript}
 
-**Voice B (User's Pitch):**
-"${voiceBTranscript}"
-
-Score them and explain the differences.`
+Voice B: ${voiceBTranscript}`
         }
       ],
-      temperature: 0.3,
-      max_tokens: 1500,
-      response_format: { type: "json_object" }, // Force JSON response
+      temperature: 0.1,
+      max_tokens: 800,
+      response_format: { type: "json_object" },
     })
 
     const aiResponse = completion.choices[0]?.message?.content?.trim() || ""
@@ -139,6 +117,22 @@ Score them and explain the differences.`
     console.log("=== Parsed Successfully ===")
     console.log(JSON.stringify(parsedResponse, null, 2))
     console.log("===========================")
+    
+    // Validate the response structure
+    if (!parsedResponse.voiceA || !parsedResponse.voiceB) {
+      throw new Error("Missing voiceA or voiceB in response")
+    }
+    
+    // Validate required fields
+    const requiredFields = ['usageOfKeywords', 'pronunciation', 'fluency', 'objectionHandling', 'queryResolution']
+    for (const field of requiredFields) {
+      if (typeof parsedResponse.voiceA[field as keyof typeof parsedResponse.voiceA] !== 'number') {
+        throw new Error(`Missing or invalid ${field} in voiceA`)
+      }
+      if (typeof parsedResponse.voiceB[field as keyof typeof parsedResponse.voiceB] !== 'number') {
+        throw new Error(`Missing or invalid ${field} in voiceB`)
+      }
+    }
 
     // Clamp scores to 0-100
     const clamp = (n: number) => Math.round(Math.max(0, Math.min(100, n)))
@@ -158,7 +152,7 @@ Score them and explain the differences.`
         objectionHandling: clamp(parsedResponse.voiceB.objectionHandling),
         queryResolution: clamp(parsedResponse.voiceB.queryResolution),
       },
-      reasoning: parsedResponse.reasoning,
+      reasoning: parsedResponse.reasoning || "AI analysis completed",
     })
 
   } catch (error: any) {
