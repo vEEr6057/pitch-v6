@@ -386,40 +386,6 @@ export default function Page() {
       {/* Box 4: Comparison Chart and Detailed Notes */}
       {comparisonResult && (
         <>
-          {/* Show Transcripts Side by Side */}
-          <Card className="shadow-md border-0">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-balance text-base md:text-lg font-bold text-gray-800 text-center">
-                Transcript Comparison
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-2 gap-4">
-                {/* Voice A Transcript */}
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <h3 className="font-semibold text-blue-900 mb-3">📄 Voice A (Reference Pitch)</h3>
-                  <p className="text-sm text-blue-800 whitespace-pre-wrap">
-                    {comparisonResult.voiceA.refinedText}
-                  </p>
-                  <p className="text-xs text-blue-600 mt-3">
-                    Words: {comparisonResult.voiceA.refinedText.split(/\s+/).length}
-                  </p>
-                </div>
-                
-                {/* Voice B Transcript */}
-                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                  <h3 className="font-semibold text-green-900 mb-3">📄 Voice B (Your Pitch)</h3>
-                  <p className="text-sm text-green-800 whitespace-pre-wrap">
-                    {comparisonResult.voiceB.refinedText}
-                  </p>
-                  <p className="text-xs text-green-600 mt-3">
-                    Words: {comparisonResult.voiceB.refinedText.split(/\s+/).length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           <Card className="shadow-md border-0">
             <CardHeader className="pb-4">
               <CardTitle className="text-balance text-base md:text-lg font-bold text-gray-800 text-center">

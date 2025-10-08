@@ -1,4 +1,10 @@
 import { z } from "zod"
+import Groq from "groq-sdk"
+
+// Initialize Groq client with FREE API key
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY || "gsk_demo_key_for_testing", // Free demo key
+})
 
 // Define interfaces for API types
 interface Scores {
@@ -127,16 +133,89 @@ export async function POST(req: Request): Promise<Response> {
   const body = await req.json().catch(() => ({}) as Record<string, unknown>)
   const transcript = ((body?.transcript as string) || "").toString()
   const providedKeywords: string[] = Array.isArray(body?.keywords) ? (body.keywords as string[]) : []
-  const isSpeechInput = Boolean(body?.isSpeechInput) // Flag for speech vs text input
+  const isSpeechInput = Boolean(body?.isSpeechInput)
 
   if (!transcript) {
     return new Response("Missing transcript", { status: 400 })
   }
 
-  const words = transcript.trim().split(/\s+/).filter(Boolean)
+  try {
+    // Use FREE Groq AI to analyze the pitch and generate scores
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.1-70b-versatile", // Fast, free model
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert sales pitch evaluator. Analyze the given pitch transcript and provide detailed scoring based on these criteria:
 
-  // NO REFINEMENT - Use raw transcript only
-  const rawTranscript = transcript.trim()
+1. **Usage of Keywords** (0-100): How well does the pitch use relevant product/service keywords? Are key benefits mentioned?
+2. **Pronunciation** (0-100): Based on the text quality, how clear and professional is the language? Are there grammar errors or unclear phrasing?
+3. **Fluency** (0-100): How smoothly does the pitch flow? Is it coherent and well-structured?
+4. **Objection Handling** (0-100): Does the pitch anticipate customer concerns and address benefits proactively?
+5. **Query Resolution** (0-100): How well does the pitch answer potential questions? Is it complete and informative?
+
+Respond ONLY with a valid JSON object in this exact format (no markdown, no code blocks):
+{
+  "refinedText": "the original transcript unchanged",
+  "scores": {
+    "usageOfKeywords": 75,
+    "pronunciation": 85,
+    "fluency": 90,
+    "objectionHandling": 70,
+    "queryResolution": 80
+  },
+  "extractedKeywords": ["keyword1", "keyword2"],
+  "notes": "Brief explanation of scoring"
+}`
+        },
+        {
+          role: "user",
+          content: `Analyze this sales pitch and score it:\n\n"${transcript}"`
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 1000,
+    })
+
+    const aiResponse = completion.choices[0]?.message?.content?.trim() || ""
+    
+    // Parse AI response
+    let parsedResponse: ScoreResponse
+    try {
+      parsedResponse = JSON.parse(aiResponse)
+    } catch (parseError) {
+      console.error("Failed to parse AI response:", aiResponse)
+      // Fallback to algorithmic scoring if AI fails
+      return fallbackScoring(transcript, providedKeywords)
+    }
+
+    // Validate and clamp scores
+    const validatedResponse: ScoreResponse = {
+      refinedText: transcript,
+      scores: {
+        usageOfKeywords: clampRound(parsedResponse.scores.usageOfKeywords),
+        pronunciation: clampRound(parsedResponse.scores.pronunciation),
+        fluency: clampRound(parsedResponse.scores.fluency),
+        objectionHandling: clampRound(parsedResponse.scores.objectionHandling),
+        queryResolution: clampRound(parsedResponse.scores.queryResolution),
+      },
+      extractedKeywords: parsedResponse.extractedKeywords || heuristicKeywords(transcript, 10),
+      notes: parsedResponse.notes || "AI-powered analysis",
+      usedFallback: false,
+    }
+
+    return Response.json(validatedResponse)
+
+  } catch (error) {
+    console.error("Groq AI error:", error)
+    // Fallback to algorithmic scoring if AI fails
+    return fallbackScoring(transcript, providedKeywords)
+  }
+}
+
+// Fallback scoring function (original algorithm)
+function fallbackScoring(rawTranscript: string, providedKeywords: string[]): Response {
+  const words = rawTranscript.trim().split(/\s+/).filter(Boolean)
 
   // Calculate word count, sentence count, and avg word length for better metrics
   const wordCount = rawTranscript.split(/\s+/).filter(Boolean).length;
