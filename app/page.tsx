@@ -359,33 +359,13 @@ export default function Page() {
             Record Your Pitch (VoiceB)
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-4 md:p-6">
+        <CardContent className="p-4 md:p-6 space-y-4">
           <AudioRecorderAssemblyAI onTranscript={handleSpeechTranscript} />
-        </CardContent>
-      </Card>
-
-      {/* Box 3: VoiceB Transcript */}
-      <Card className="shadow-md border-0">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-balance text-base md:text-lg font-bold text-gray-800 text-center">
-            Your Pitch Transcript
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <textarea
-            className={cn("w-full min-h-32 rounded-md border bg-background p-3 text-sm")}
-            value={voiceBTranscript}
-            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
-              setVoiceBTranscript(e.target.value)
-              setComparisonResult(null) // Clear comparison when editing
-            }}
-            placeholder="Your spoken text will appear here. You can also edit it manually."
-          />
           
           <Button 
             onClick={handleCompareVoices} 
             disabled={!voiceAResult || !voiceBTranscript || isComparing}
-            className="w-full md:w-auto"
+            className="w-full"
           >
             {isComparing ? "Evaluating..." : "Evaluate & Compare"}
           </Button>
@@ -394,7 +374,7 @@ export default function Page() {
         </CardContent>
       </Card>
 
-      {/* Box 4: Comparison Chart and Detailed Notes */}
+      {/* Box 3: Comparison Chart and Detailed Notes */}
       {comparisonResult && (
         <>
           <Card className="shadow-md border-0">
