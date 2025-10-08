@@ -19,7 +19,10 @@ interface ComparisonScores {
     objectionHandling: number
     queryResolution: number
   }
-  reasoning: string
+  voiceAKeywords?: string[]
+  voiceBKeywords?: string[]
+  differences?: string
+  reasoning?: string
 }
 
 export const maxDuration = 60
@@ -46,24 +49,43 @@ export async function POST(req: Request): Promise<Response> {
 
     // Use AI to compare both pitches side-by-side
     const completion = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant", // Faster, more reliable model
+      model: "llama-3.1-8b-instant",
       messages: [
         {
           role: "system",
-          content: `You are a sales pitch scorer. Return ONLY valid JSON, no other text.
+          content: `You are a professional sales pitch scorer. Score objectively and fairly based on content quality.
 
-Score both pitches (0-100) on:
-- usageOfKeywords: product keywords and benefits
-- pronunciation: grammar and clarity
-- fluency: flow and structure
-- objectionHandling: addresses concerns
-- queryResolution: completeness
+SCORING CRITERIA (0-100 each):
+- usageOfKeywords: Product features, benefits, and relevant keywords mentioned
+- pronunciation: Grammar quality, clarity, word choice
+- fluency: Natural flow, smooth transitions, coherent structure  
+- objectionHandling: Addresses concerns, builds confidence
+- queryResolution: Complete information, answers implicit questions
 
-JSON format:
+CRITICAL SCORING RULES:
+1. PROPORTIONAL SCORING: Similar pitch quality = similar scores (within 5-15 points)
+2. FAIR DEDUCTIONS:
+   - Minor grammar error: -3 to -5 points
+   - Awkward phrasing: -5 to -10 points
+   - Missing key element: -10 to -15 points
+   - Major structural issue: -15 to -25 points
+3. CONTEXT MATTERS: Both pitches are about the same product (Hydratrack water bottle)
+4. FOCUS: Judge the message effectiveness, not perfection
+
+EXAMPLE OF FAIR SCORING:
+If Voice A says "Stay hydrated smarter with Hydratrack" (clear, good grammar)
+And Voice B says "Stay Hydrated Smart with the Hydra tech" (minor grammar, similar message)
+→ Voice A might score 85-90, Voice B should score 75-85 (NOT 30-40!)
+
+Extract 5 main keywords from each pitch.
+
+Return JSON only (no markdown):
 {
-  "voiceA": {"usageOfKeywords": 75, "pronunciation": 85, "fluency": 90, "objectionHandling": 70, "queryResolution": 80},
-  "voiceB": {"usageOfKeywords": 65, "pronunciation": 70, "fluency": 75, "objectionHandling": 65, "queryResolution": 70},
-  "reasoning": "explanation here"
+  "voiceA": {"usageOfKeywords": 85, "pronunciation": 88, "fluency": 90, "objectionHandling": 78, "queryResolution": 82},
+  "voiceB": {"usageOfKeywords": 82, "pronunciation": 80, "fluency": 85, "objectionHandling": 75, "queryResolution": 78},
+  "voiceAKeywords": ["hydrated", "reusable", "bottle", "reminds", "drink"],
+  "voiceBKeywords": ["hydrated", "reusable", "bottle", "gives", "drink"],
+  "differences": "Both pitches convey similar message about Hydratrack. Voice B has minor grammar variations but maintains core value proposition."
 }`
         },
         {
@@ -152,7 +174,9 @@ Voice B: ${voiceBTranscript}`
         objectionHandling: clamp(parsedResponse.voiceB.objectionHandling),
         queryResolution: clamp(parsedResponse.voiceB.queryResolution),
       },
-      reasoning: parsedResponse.reasoning || "AI analysis completed",
+      voiceAKeywords: parsedResponse.voiceAKeywords || [],
+      voiceBKeywords: parsedResponse.voiceBKeywords || [],
+      differences: parsedResponse.differences || parsedResponse.reasoning || "",
     })
 
   } catch (error: any) {

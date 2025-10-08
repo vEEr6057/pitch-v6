@@ -26,12 +26,14 @@ interface ScorePayload {
 interface ComparisonResult {
   voiceA: ScorePayload;
   voiceB: ScorePayload;
+  voiceAKeywords?: string[];
+  voiceBKeywords?: string[];
+  differences?: string;
   detailedNotes: {
     metric: string;
     voiceAScore: number;
     voiceBScore: number;
-    voiceAExplanation: string;
-    voiceBExplanation: string;
+    factors: string[];
   }[];
 }
 
@@ -176,17 +178,64 @@ export default function Page() {
         { key: "queryResolution", name: "Query Resolution" },
       ]
 
+      // Generate detailed factors for each metric
+      const generateFactors = (metric: string, voiceAScore: number, voiceBScore: number, voiceAText: string, voiceBText: string): string[] => {
+        const factors: string[] = []
+        
+        // Word count analysis
+        const voiceAWords = voiceAText.split(/\s+/).filter(w => w).length
+        const voiceBWords = voiceBText.split(/\s+/).filter(w => w).length
+        factors.push(`Word count: Voice A (${voiceAWords} words) vs Voice B (${voiceBWords} words)`)
+        
+        // Basic quality indicators based on scores
+        if (voiceAScore >= 80) {
+          factors.push(`✓ Voice A: Strong performance (${voiceAScore}/100)`)
+        } else if (voiceAScore >= 60) {
+          factors.push(`⚠ Voice A: Good performance with room for improvement (${voiceAScore}/100)`)
+        } else {
+          factors.push(`✗ Voice A: Needs significant improvement (${voiceAScore}/100)`)
+        }
+        
+        if (voiceBScore >= 80) {
+          factors.push(`✓ Voice B: Strong performance (${voiceBScore}/100)`)
+        } else if (voiceBScore >= 60) {
+          factors.push(`⚠ Voice B: Good performance with room for improvement (${voiceBScore}/100)`)
+        } else {
+          factors.push(`✗ Voice B: Needs significant improvement (${voiceBScore}/100)`)
+        }
+        
+        // Score difference analysis
+        const diff = Math.abs(voiceAScore - voiceBScore)
+        if (diff <= 5) {
+          factors.push(`📊 Very similar performance (${diff} point difference)`)
+        } else if (diff <= 15) {
+          factors.push(`📊 Moderate difference in performance (${diff} point difference)`)
+        } else {
+          factors.push(`📊 Significant difference in performance (${diff} point difference)`)
+        }
+        
+        return factors
+      }
+
       const detailedNotes = metrics.map((metric) => ({
         metric: metric.name,
         voiceAScore: comparisonData.voiceA[metric.key as keyof Scores],
         voiceBScore: comparisonData.voiceB[metric.key as keyof Scores],
-        voiceAExplanation: comparisonData.reasoning,
-        voiceBExplanation: comparisonData.reasoning,
+        factors: generateFactors(
+          metric.name,
+          comparisonData.voiceA[metric.key as keyof Scores],
+          comparisonData.voiceB[metric.key as keyof Scores],
+          updatedVoiceAResult.refinedText,
+          voiceBData.refinedText
+        )
       }))
 
       setComparisonResult({
         voiceA: updatedVoiceAResult,
         voiceB: voiceBData,
+        voiceAKeywords: comparisonData.voiceAKeywords || [],
+        voiceBKeywords: comparisonData.voiceBKeywords || [],
+        differences: comparisonData.differences || "",
         detailedNotes,
       })
     } catch (err) {
@@ -382,20 +431,51 @@ export default function Page() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Show AI reasoning first */}
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <h3 className="font-semibold text-purple-900 mb-2">🤖 AI Comparison Analysis</h3>
-                <p className="text-sm text-purple-800 whitespace-pre-wrap">
-                  {comparisonResult.detailedNotes[0]?.voiceAExplanation || "AI analysis completed"}
-                </p>
+              {/* Show extracted keywords first */}
+              <div className="grid md:grid-cols-2 gap-4 mb-6">
+                {/* Voice A Keywords */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="font-semibold text-blue-900 mb-3">🎯 Reference Pitch Keywords</h3>
+                  <ul className="space-y-1">
+                    {comparisonResult.voiceAKeywords && comparisonResult.voiceAKeywords.length > 0 ? (
+                      comparisonResult.voiceAKeywords.map((keyword, idx) => (
+                        <li key={idx} className="text-sm text-blue-800">• {keyword}</li>
+                      ))
+                    ) : (
+                      <li className="text-sm text-blue-600 italic">Keywords not extracted</li>
+                    )}
+                  </ul>
+                </div>
+
+                {/* Voice B Keywords */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h3 className="font-semibold text-green-900 mb-3">🎯 Your Pitch Keywords</h3>
+                  <ul className="space-y-1">
+                    {comparisonResult.voiceBKeywords && comparisonResult.voiceBKeywords.length > 0 ? (
+                      comparisonResult.voiceBKeywords.map((keyword, idx) => (
+                        <li key={idx} className="text-sm text-green-800">• {keyword}</li>
+                      ))
+                    ) : (
+                      <li className="text-sm text-green-600 italic">Keywords not extracted</li>
+                    )}
+                  </ul>
+                </div>
               </div>
+
+              {/* Key Differences */}
+              {comparisonResult.differences && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+                  <h3 className="font-semibold text-amber-900 mb-2">🔍 Key Differences</h3>
+                  <p className="text-sm text-amber-800 whitespace-pre-wrap">{comparisonResult.differences}</p>
+                </div>
+              )}
 
               {/* Score comparison by metric */}
               {comparisonResult.detailedNotes.map((note: any, index: number) => (
                 <div key={index} className="border-b pb-6 last:border-b-0">
                   <h3 className="font-semibold text-lg mb-4 text-gray-900">{note.metric}</h3>
                   
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid md:grid-cols-2 gap-4 mb-4">
                     {/* VoiceA Score */}
                     <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                       <div className="flex items-center justify-between">
@@ -411,6 +491,16 @@ export default function Page() {
                         <span className="text-3xl font-bold text-green-700">{note.voiceBScore}</span>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Detailed Factors */}
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">📋 Analysis Factors:</h4>
+                    <ul className="space-y-1">
+                      {note.factors.map((factor: string, fIdx: number) => (
+                        <li key={fIdx} className="text-sm text-gray-700">{factor}</li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
               ))}
