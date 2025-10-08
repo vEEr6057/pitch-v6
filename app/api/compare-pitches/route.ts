@@ -50,22 +50,22 @@ export async function POST(req: Request): Promise<Response> {
       messages: [
         {
           role: "system",
-          content: `You are an expert sales pitch evaluator. Compare TWO pitch transcripts and score them based on:
+          content: `You are an expert sales pitch evaluator. Compare TWO pitch transcripts and score them on these exact criteria:
 
-1. **Usage of Keywords**: Relevant product/service keywords and benefits
-2. **Pronunciation/Clarity**: Grammar, professional language, clear phrasing
-3. **Fluency**: Flow, coherence, structure
-4. **Objection Handling**: Anticipating concerns, addressing benefits
-5. **Query Resolution**: Completeness, answering potential questions
+1. usageOfKeywords (0-100): How well does the pitch use relevant product/service keywords and benefits?
+2. pronunciation (0-100): Grammar quality, professional language, clear phrasing (based on text quality)
+3. fluency (0-100): Flow, coherence, logical structure
+4. objectionHandling (0-100): Does it anticipate concerns and address benefits proactively?
+5. queryResolution (0-100): How complete and informative is the pitch?
 
-IMPORTANT: 
+CRITICAL RULES:
 - Give DIFFERENT scores based on actual quality differences
-- If one pitch has grammar errors, score it lower
-- If one pitch is clearer, score it higher
-- If one pitch is more complete, score it higher
-- Don't give identical scores unless they're truly equal quality
+- Detect grammar errors, awkward phrasing, unclear statements
+- Score lower for poor grammar, score higher for clarity
+- Don't give identical scores unless truly equal quality
+- Respond ONLY with raw JSON, no markdown, no code blocks, no explanation outside the JSON
 
-Respond with valid JSON (no markdown):
+JSON format (EXACTLY this structure):
 {
   "voiceA": {
     "usageOfKeywords": 75,
@@ -103,6 +103,10 @@ Score them and explain the differences.`
 
     const aiResponse = completion.choices[0]?.message?.content?.trim() || ""
     
+    console.log("=== AI Response ===")
+    console.log(aiResponse)
+    console.log("===================")
+    
     // Clean up AI response - remove markdown code blocks if present
     let cleanedResponse = aiResponse
     if (cleanedResponse.startsWith('```json')) {
@@ -111,8 +115,16 @@ Score them and explain the differences.`
       cleanedResponse = cleanedResponse.replace(/```\n?/g, '')
     }
     
+    console.log("=== Cleaned Response ===")
+    console.log(cleanedResponse)
+    console.log("========================")
+    
     // Parse AI response
     const parsedResponse: ComparisonScores = JSON.parse(cleanedResponse)
+    
+    console.log("=== Parsed Successfully ===")
+    console.log(JSON.stringify(parsedResponse, null, 2))
+    console.log("===========================")
 
     // Clamp scores to 0-100
     const clamp = (n: number) => Math.round(Math.max(0, Math.min(100, n)))
@@ -174,6 +186,6 @@ function fallbackComparison(voiceATranscript: string, voiceBTranscript: string):
   return Response.json({
     voiceA,
     voiceB,
-    reasoning: "⚠️ Using fallback scoring - Groq API key not configured. Add GROQ_API_KEY to environment variables for AI-powered comparison. Scores are estimates based on text length and basic patterns."
+    reasoning: "⚠️ AI comparison failed - using fallback scoring. The Groq API was called but the response couldn't be parsed. Scores are estimates based on text length and basic patterns. Check Vercel logs for details."
   })
 }
