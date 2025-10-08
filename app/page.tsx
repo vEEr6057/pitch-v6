@@ -189,29 +189,29 @@ export default function Page() {
         
         // Basic quality indicators based on scores
         if (voiceAScore >= 80) {
-          factors.push(`✓ Voice A: Strong performance (${voiceAScore}/100)`)
+          factors.push(`Voice A: Strong performance (${voiceAScore}/100)`)
         } else if (voiceAScore >= 60) {
-          factors.push(`⚠ Voice A: Good performance with room for improvement (${voiceAScore}/100)`)
+          factors.push(`Voice A: Good performance with room for improvement (${voiceAScore}/100)`)
         } else {
-          factors.push(`✗ Voice A: Needs significant improvement (${voiceAScore}/100)`)
+          factors.push(`Voice A: Needs significant improvement (${voiceAScore}/100)`)
         }
         
         if (voiceBScore >= 80) {
-          factors.push(`✓ Voice B: Strong performance (${voiceBScore}/100)`)
+          factors.push(`Voice B: Strong performance (${voiceBScore}/100)`)
         } else if (voiceBScore >= 60) {
-          factors.push(`⚠ Voice B: Good performance with room for improvement (${voiceBScore}/100)`)
+          factors.push(`Voice B: Good performance with room for improvement (${voiceBScore}/100)`)
         } else {
-          factors.push(`✗ Voice B: Needs significant improvement (${voiceBScore}/100)`)
+          factors.push(`Voice B: Needs significant improvement (${voiceBScore}/100)`)
         }
         
         // Score difference analysis
         const diff = Math.abs(voiceAScore - voiceBScore)
         if (diff <= 5) {
-          factors.push(`📊 Very similar performance (${diff} point difference)`)
+          factors.push(`Very similar performance (${diff} point difference)`)
         } else if (diff <= 15) {
-          factors.push(`📊 Moderate difference in performance (${diff} point difference)`)
+          factors.push(`Moderate difference in performance (${diff} point difference)`)
         } else {
-          factors.push(`📊 Significant difference in performance (${diff} point difference)`)
+          factors.push(`Significant difference in performance (${diff} point difference)`)
         }
         
         return factors
@@ -337,13 +337,13 @@ export default function Page() {
 
                 {voiceAStatus === "completed" && (
                   <div className="p-3 bg-green-50 border border-green-200 rounded-md">
-                    <p className="text-sm font-medium text-green-800">✓ Reference pitch uploaded and evaluated</p>
+                    <p className="text-sm font-medium text-green-800">Reference pitch uploaded and evaluated</p>
                   </div>
                 )}
 
                 {voiceAStatus === "error" && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                    <p className="text-sm font-medium text-red-800">✗ Processing failed. Please try again.</p>
+                    <p className="text-sm font-medium text-red-800">Processing failed. Please try again.</p>
                   </div>
                 )}
               </div>
@@ -435,7 +435,7 @@ export default function Page() {
               <div className="grid md:grid-cols-2 gap-4 mb-6">
                 {/* Voice A Keywords */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="font-semibold text-blue-900 mb-3">🎯 Reference Pitch Keywords</h3>
+                  <h3 className="font-semibold text-blue-900 mb-3">Reference Pitch Keywords</h3>
                   <ul className="space-y-1">
                     {comparisonResult.voiceAKeywords && comparisonResult.voiceAKeywords.length > 0 ? (
                       comparisonResult.voiceAKeywords.map((keyword, idx) => (
@@ -449,7 +449,7 @@ export default function Page() {
 
                 {/* Voice B Keywords */}
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <h3 className="font-semibold text-green-900 mb-3">🎯 Your Pitch Keywords</h3>
+                  <h3 className="font-semibold text-green-900 mb-3">Your Pitch Keywords</h3>
                   <ul className="space-y-1">
                     {comparisonResult.voiceBKeywords && comparisonResult.voiceBKeywords.length > 0 ? (
                       comparisonResult.voiceBKeywords.map((keyword, idx) => (
@@ -465,7 +465,7 @@ export default function Page() {
               {/* Key Differences */}
               {comparisonResult.differences && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-                  <h3 className="font-semibold text-amber-900 mb-2">🔍 Key Differences</h3>
+                  <h3 className="font-semibold text-amber-900 mb-2">Key Differences</h3>
                   <p className="text-sm text-amber-800 whitespace-pre-wrap">{comparisonResult.differences}</p>
                 </div>
               )}
@@ -495,7 +495,7 @@ export default function Page() {
 
                   {/* Detailed Factors */}
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2">📋 Analysis Factors:</h4>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Analysis Factors:</h4>
                     <ul className="space-y-1">
                       {note.factors.map((factor: string, fIdx: number) => (
                         <li key={fIdx} className="text-sm text-gray-700">{factor}</li>
