@@ -135,77 +135,39 @@ export default function Page() {
     setComparisonResult(null)
 
     try {
-      // Evaluate voiceB
-      const voiceBRes = await fetch("/api/refine-score", {
+      // Use NEW AI comparison endpoint that compares both pitches together
+      const compareRes = await fetch("/api/compare-pitches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          transcript: voiceBTranscript,
-          keywords: [],
-          isSpeechInput: true, // Always speech-based
+          voiceATranscript: voiceAResult.refinedText,
+          voiceBTranscript: voiceBTranscript,
         }),
       })
 
-      if (!voiceBRes.ok) {
-        throw new Error("Failed to evaluate VoiceB")
+      if (!compareRes.ok) {
+        throw new Error("Failed to compare pitches")
       }
 
-      const voiceBData = await voiceBRes.json()
+      const comparisonData = await compareRes.json()
+      
+      // Update voiceB result with new scores
+      const voiceBData = {
+        refinedText: voiceBTranscript,
+        scores: comparisonData.voiceB,
+        extractedKeywords: [],
+        notes: comparisonData.reasoning,
+      }
       setVoiceBResult(voiceBData)
 
-      // Generate detailed explanations for each metric
-      const generateExplanation = (transcript: string, score: number, metricKey: string) => {
-        const words = transcript.split(/\s+/).filter(Boolean);
-        const sentences = transcript.split(/[.!?]+/).filter(Boolean);
-        const avgWordLength = transcript.replace(/\s/g, '').length / Math.max(1, words.length);
-        
-        // Detect various speech patterns
-        const fillers = (transcript.match(/\b(um|uh|you know|like|well|so|let me|I mean|basically|actually)\b/gi) || []).length;
-        const conversationalMarkers = (transcript.match(/\b(and then|after that|next|finally|first|second|because|since|however|although|but)\b/gi) || []).length;
-        const interactiveLanguage = (transcript.match(/\b(I understand|I see|that's a good point|you might be thinking|let me address|what if|suppose|imagine|many people ask|common concern|often hear)\b/gi) || []).length;
-        const questions = (transcript.match(/\?/g) || []).length;
-        const engagementWords = (transcript.match(/\b(would you|consider|please|may)\b/gi) || []).length;
-        const persuasiveWords = (transcript.match(/\b(advantage|benefit|value|improve|better|best|solution|opportunity|effective|efficient|quality|save|proven|guarantee|recommend)\b/gi) || []).length;
-        const hasIntro = /^(greetings|hello|hi|good|dear|welcome)/i.test(transcript);
-        const hasConclusion = /(thank|appreciate|consider|conclusion|in summary|sincerely|regards)/i.test(transcript);
-        
-        const factors: string[] = [];
-        
-        if (metricKey === "usageOfKeywords") {
-          factors.push(`Word count: ${words.length} words analyzed`);
-          factors.push(`Key terms identified and weighted by frequency and position`);
-          factors.push(`Domain-specific vocabulary usage evaluated`);
-          if (hasIntro) factors.push("✓ Keywords present in introduction");
-          if (hasConclusion) factors.push("✓ Keywords present in conclusion");
-        } else if (metricKey === "pronunciation") {
-          factors.push(`Average word length: ${avgWordLength.toFixed(1)} characters`);
-          if (fillers > 0) factors.push(`Natural speech markers detected: ${fillers}`);
-          factors.push(`Sentence structure: ${sentences.length} sentence${sentences.length !== 1 ? 's' : ''}`);
-          if (avgWordLength < 5) factors.push("✓ Clear, concise word choices");
-          if (sentences > 2) factors.push("✓ Good pacing with multiple sentences");
-        } else if (metricKey === "fluency") {
-          factors.push(`Speech length: ${words.length} words`);
-          if (conversationalMarkers > 0) factors.push(`Flow markers used: ${conversationalMarkers} (sequence & logic connectors)`);
-          factors.push(`Sentence variety: ${sentences.length} sentence${sentences.length !== 1 ? 's' : ''}`);
-          if (sentences > 1 && sentences < 8) factors.push("✓ Optimal sentence variety for speech");
-          if (words.length > 30) factors.push("✓ Appropriate length for detailed pitch");
-        } else if (metricKey === "objectionHandling") {
-          if (interactiveLanguage > 0) factors.push(`Interactive phrases used: ${interactiveLanguage}`);
-          if (persuasiveWords > 0) factors.push(`Persuasive language: ${persuasiveWords} power words`);
-          if (questions > 0) factors.push(`Engagement questions: ${questions}`);
-          if (hasIntro && hasConclusion) factors.push("✓ Strong opening and closing");
-          if (factors.length === 0) factors.push("Limited interactive or persuasive elements detected");
-        } else if (metricKey === "queryResolution") {
-          if (questions > 0) factors.push(`Questions asked: ${questions} (shows engagement)`);
-          if (engagementWords > 0) factors.push(`Engagement phrases: ${engagementWords} (considerate language)`);
-          factors.push(`Overall clarity: ${sentences.length > 0 ? 'Multiple clear points' : 'Single statement'}`);
-          if (hasConclusion) factors.push("✓ Clear conclusion provided");
-        }
-        
-        return factors;
-      };
+      // Update voiceA result with potentially adjusted scores
+      const updatedVoiceAResult = {
+        ...voiceAResult,
+        scores: comparisonData.voiceA,
+      }
+      setVoiceAResult(updatedVoiceAResult)
 
-      // Create detailed comparison notes with bullet-point explanations
+      // Create simple comparison result
       const metrics = [
         { key: "usageOfKeywords", name: "Usage of Keywords" },
         { key: "pronunciation", name: "Pronunciation" },
@@ -216,14 +178,14 @@ export default function Page() {
 
       const detailedNotes = metrics.map((metric) => ({
         metric: metric.name,
-        voiceAScore: voiceAResult.scores[metric.key as keyof Scores],
-        voiceBScore: voiceBData.scores[metric.key as keyof Scores],
-        voiceAFactors: generateExplanation(voiceAResult.refinedText, voiceAResult.scores[metric.key as keyof Scores], metric.key),
-        voiceBFactors: generateExplanation(voiceBData.refinedText, voiceBData.scores[metric.key as keyof Scores], metric.key),
+        voiceAScore: comparisonData.voiceA[metric.key as keyof Scores],
+        voiceBScore: comparisonData.voiceB[metric.key as keyof Scores],
+        voiceAExplanation: comparisonData.reasoning,
+        voiceBExplanation: comparisonData.reasoning,
       }))
 
       setComparisonResult({
-        voiceA: voiceAResult,
+        voiceA: updatedVoiceAResult,
         voiceB: voiceBData,
         detailedNotes,
       })
@@ -416,50 +378,37 @@ export default function Page() {
           <Card className="shadow-md border-0">
             <CardHeader className="pb-4">
               <CardTitle className="text-balance text-base md:text-lg font-bold text-gray-800 text-center">
-                Detailed Scoring Breakdown
+                AI Analysis & Scoring Breakdown
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Show AI reasoning first */}
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <h3 className="font-semibold text-purple-900 mb-2">🤖 AI Comparison Analysis</h3>
+                <p className="text-sm text-purple-800 whitespace-pre-wrap">
+                  {comparisonResult.detailedNotes[0]?.voiceAExplanation || "AI analysis completed"}
+                </p>
+              </div>
+
+              {/* Score comparison by metric */}
               {comparisonResult.detailedNotes.map((note: any, index: number) => (
                 <div key={index} className="border-b pb-6 last:border-b-0">
                   <h3 className="font-semibold text-lg mb-4 text-gray-900">{note.metric}</h3>
                   
                   <div className="grid md:grid-cols-2 gap-4">
-                    {/* VoiceA Explanation */}
+                    {/* VoiceA Score */}
                     <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                      <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold text-blue-900">Reference Pitch</span>
-                        <span className="text-2xl font-bold text-blue-700">{note.voiceAScore}</span>
-                      </div>
-                      <div className="text-sm text-blue-800 space-y-1.5">
-                        <p className="font-medium mb-2">Score factors:</p>
-                        <ul className="space-y-1">
-                          {note.voiceAFactors.map((factor: string, i: number) => (
-                            <li key={i} className="flex items-start">
-                              <span className="mr-2 mt-0.5">•</span>
-                              <span>{factor}</span>
-                            </li>
-                          ))}
-                        </ul>
+                        <span className="text-3xl font-bold text-blue-700">{note.voiceAScore}</span>
                       </div>
                     </div>
 
-                    {/* VoiceB Explanation */}
+                    {/* VoiceB Score */}
                     <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                      <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold text-green-900">Your Pitch</span>
-                        <span className="text-2xl font-bold text-green-700">{note.voiceBScore}</span>
-                      </div>
-                      <div className="text-sm text-green-800 space-y-1.5">
-                        <p className="font-medium mb-2">Score factors:</p>
-                        <ul className="space-y-1">
-                          {note.voiceBFactors.map((factor: string, i: number) => (
-                            <li key={i} className="flex items-start">
-                              <span className="mr-2 mt-0.5">•</span>
-                              <span>{factor}</span>
-                            </li>
-                          ))}
-                        </ul>
+                        <span className="text-3xl font-bold text-green-700">{note.voiceBScore}</span>
                       </div>
                     </div>
                   </div>
