@@ -120,43 +120,50 @@ Example 2 - Weak Medical Pitch (Voice B should score 30-45):
 - queryResolution: 30 (no dosage, no details)
 
 CRITICAL SCORING RULES:
-- This is a PHARMACEUTICAL sales pitch - must be professional and complete
-- Incomplete pitches (missing key info) = 20-40 range
-- Confusing/unprofessional language = 15-35 range
-- Dismissive tone ("whatever", "I don't care") = 10-30 range
-- Complete professional pitches = 60-90 range
+- This is a PHARMACEUTICAL sales pitch - professional and informative
+- Professional pitches with medical content = 55-85 range
+- Incomplete but has key info (drug name, indication) = 40-60 range
+- Very vague or unprofessional ("whatever", dismissive) = 20-40 range
 
-STRICT EVALUATION:
-- If pitch is vague or incomplete, score LOW (20-40)
-- If pitch has unprofessional language, score VERY LOW (15-30)
-- If pitch lacks critical info (dosage, indication, benefits), score LOW (25-45)
-- Only score HIGH (70-90) if pitch is truly professional and complete
+BALANCED EVALUATION:
+- If pitch mentions drug name + indication + any benefit = 50-70
+- If pitch has dosage + professional language = 60-80
+- If pitch is complete with call-to-action = 70-90
+- Only score VERY LOW (20-35) if truly terrible (dismissive, no info)
 
 PHARMACEUTICAL PITCH SCORING EXAMPLES:
 
-Example 1 - Good Medical Pitch (Voice B should score 65-80):
-"Good morning doctor, for BPH with prostate size >30cc, prescribe Dosin D. It contains Silodin 4.8mg + Dutasteride 0.5mg, manufactured in GMP plant with 24-hour efficacy for BPH symptoms."
-- usageOfKeywords: 75 (has drug name, indication, dosage, benefit)
-- pronunciation: 70 (clear medical communication)
-- fluency: 72 (follows indication→product→benefit flow)
-- objectionHandling: 68 (mentions 24-hour efficacy, GMP quality)
-- queryResolution: 70 (provides dosage, indication, when to prescribe)
+Example 1 - Excellent Pitch (Voice B should score 70-85):
+"Good morning doctor, for BPH with prostate size >30cc, prescribe Dosin D. It contains Silodin 4.8mg + Dutasteride 0.5mg, manufactured in GMP plant with 24-hour efficacy for BPH symptoms. Please consider prescribing. Thank you."
+- usageOfKeywords: 78 (drug name, indication, dosage, benefit)
+- pronunciation: 75 (professional medical communication)
+- fluency: 76 (clear indication→product→benefit flow)
+- objectionHandling: 72 (mentions efficacy, GMP quality)
+- queryResolution: 74 (provides dosage, indication, prescribing info)
 
-Example 2 - Weak/Incomplete Pitch (Voice B should score 20-35):
-"Dosing D is okay. Whatever drug we're prescribing for BPH or something."
-- usageOfKeywords: 30 (vague, no real details)
-- pronunciation: 25 (unprofessional language "whatever", "or something")
-- fluency: 28 (disjointed, incomplete)
-- objectionHandling: 20 (no benefits, dismissive tone)
-- queryResolution: 22 (no dosage, no real information)
+Example 2 - Good Pitch with Minor Issues (Voice B should score 55-70):
+"Good morning doctor. For BPH recommend losing B with Psylodine 4.8mg plus Duastride, GMP certified with 24 hour efficiency. Please consider prescribing. Thank you."
+- usageOfKeywords: 65 (has drug name, indication, dosage - some unclear words)
+- pronunciation: 58 (some pronunciation issues but professional tone)
+- fluency: 62 (decent structure, minor clarity issues)
+- objectionHandling: 60 (mentions benefits, professional approach)
+- queryResolution: 63 (provides key info despite minor errors)
 
-Example 3 - Terrible Pitch (Voice B should score 10-25):
-"I don't want to explain this drug. It's for prostate or whatever."
-- usageOfKeywords: 15 (almost no content)
-- pronunciation: 12 (very unprofessional, dismissive)
-- fluency: 18 (broken, no structure)
-- objectionHandling: 10 (actively refuses to provide benefits)
-- queryResolution: 12 (provides nothing useful)
+Example 3 - Incomplete but Acceptable (Voice B should score 40-55):
+"For BPH prescribe Dosing D with good benefits for symptoms."
+- usageOfKeywords: 45 (mentions drug and indication but vague)
+- pronunciation: 42 (basic communication, lacks detail)
+- fluency: 48 (simple structure, no complexity)
+- objectionHandling: 40 (mentions benefits vaguely)
+- queryResolution: 43 (missing dosage and specifics)
+
+Example 4 - Poor/Dismissive (Voice B should score 15-35):
+"Dosing D is okay. Whatever drug we're prescribing for BPH or something. I don't want to explain."
+- usageOfKeywords: 28 (mentions terms but dismissive)
+- pronunciation: 22 (unprofessional "whatever", "or something")
+- fluency: 25 (disjointed, unprofessional tone)
+- objectionHandling: 18 ("I don't want" = very unprofessional)
+- queryResolution: 20 (refuses to provide information)
 
 SCORING RULES:
 - Voice A: Always score 80-95 (it's the gold standard)

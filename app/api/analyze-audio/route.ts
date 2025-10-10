@@ -74,54 +74,63 @@ CONTEXT: Voice A is the reference/baseline audio (scores 80-95). Voice B is bein
 
 IMPORTANT: 
 - Voice A's score represents 100% for Voice B scoring. If Voice A scores 60 in pronunciation, that 60 = 100% baseline for Voice B.
-- BE STRICT: Only score high if delivery is truly professional
-- Incomplete, vague, or unprofessional pitches = 20-40 range
-- Dismissive tone or lack of confidence = 15-35 range
+- BE BALANCED: Professional pitches with content = 55-80 range
+- Only score very low (15-35) for truly dismissive/unprofessional pitches
+- Minor issues (pronunciation errors) = 50-70 range
 
 AUDIO-BASED SCORING (0-100 each):
 
 1. **usageOfKeywords** (Content Analysis):
    - Medical terms, drug names, clinical terminology mentioned
    - Completeness of pitch content
-   - Vague content ("whatever drug", "or something") = 15-30
-   - Complete medical pitch = 70-90
+   - Professional pitch with medical terms = 60-80
+   - Vague but has key terms = 45-60
+   - Dismissive ("whatever drug") = 20-35
 
 2. **pronunciation** (Voice Clarity):
    - Clear articulation of medical terms
-   - Professional language (no "whatever", "I don't care")
-   - Unprofessional tone = 10-25
-   - Professional delivery = 70-90
+   - Professional language and tone
+   - Minor mispronunciations acceptable = 55-70
+   - Professional delivery with clarity = 70-85
+   - Unprofessional tone ("I don't want") = 15-30
 
 3. **fluency** (Speech Flow):
-   - Speaking pace (not too fast, not too slow)
-   - Smooth transitions, no excessive hesitations
-   - Broken/disjointed speech = 15-30
-   - Smooth professional flow = 75-90
+   - Speaking pace and rhythm
+   - Smooth transitions
+   - Minor hesitations acceptable = 55-70
+   - Smooth professional flow = 70-85
+   - Very broken/disjointed = 20-40
 
 4. **objectionHandling** (Confidence & Tone):
    - Confidence level in voice
    - Persuasive tone
-   - Dismissive/uninterested tone ("I don't want to explain") = 10-20
+   - Professional but not perfect = 55-70
    - Confident persuasive delivery = 70-85
+   - Dismissive tone ("I don't want to explain") = 15-25
 
 5. **queryResolution** (Completeness & Articulation):
    - Complete information delivery
-   - Vague or missing info = 15-30
-   - Comprehensive coverage = 75-90
+   - Clear communication of key points
+   - Has key info with minor gaps = 55-70
+   - Comprehensive coverage = 70-85
+   - Very vague or missing info = 20-35
 
 SCORING EXAMPLES:
 
-Good Professional Pitch (70-85 range):
-"Good morning doctor, for BPH prescribe Dosin D with clear dosage and benefits"
-- Clear, complete, professional
+Excellent Professional Pitch (70-85 range):
+"Good morning doctor, for BPH prescribe Dosin D with 4.8mg dosage and 24-hour efficacy"
 
-Weak/Incomplete Pitch (20-35 range):
-"Dosing D is okay for BPH or whatever"
-- Vague, unprofessional "whatever"
+Good Pitch with Minor Issues (55-70 range):
+"Good morning doctor. For BPH recommend losing B with Psylodine 4.8mg, GMP certified"
+- Has content, professional, some pronunciation issues
 
-Terrible Pitch (10-25 range):
-"I don't want to explain this drug"
-- Dismissive, unprofessional, incomplete
+Acceptable but Incomplete (40-55 range):
+"For BPH prescribe Dosing D with benefits"
+- Basic info, lacks detail
+
+Poor/Dismissive (15-35 range):
+"I don't want to explain. Whatever drug for BPH"
+- Unprofessional, dismissive, minimal info
 
 SCORING RULES:
 - Voice A is the BASELINE (always score 80-95 across metrics)

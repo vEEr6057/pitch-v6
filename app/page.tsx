@@ -403,7 +403,13 @@ export default function Page() {
                 <div className="inline-flex rounded-md shadow-sm" role="group">
                   <button
                     type="button"
-                    onClick={() => setEvaluationMode("audio")}
+                    onClick={() => {
+                      setEvaluationMode("audio")
+                      if (comparisonResult) {
+                        // Re-evaluate if results already exist
+                        setTimeout(() => handleCompareVoices(), 100)
+                      }
+                    }}
                     className={cn(
                       "px-3 py-1.5 text-xs font-medium rounded-l-md border transition-colors",
                       evaluationMode === "audio"
@@ -415,7 +421,13 @@ export default function Page() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setEvaluationMode("text")}
+                    onClick={() => {
+                      setEvaluationMode("text")
+                      if (comparisonResult) {
+                        // Re-evaluate if results already exist
+                        setTimeout(() => handleCompareVoices(), 100)
+                      }
+                    }}
                     className={cn(
                       "px-3 py-1.5 text-xs font-medium rounded-r-md border transition-colors",
                       evaluationMode === "text"
