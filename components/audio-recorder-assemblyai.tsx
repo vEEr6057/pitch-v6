@@ -4,7 +4,7 @@ import { useState, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 
 interface AudioRecorderProps {
-  onTranscript: (text: string) => void
+  onTranscript: (text: string, audioBlob?: Blob) => void
 }
 
 export default function AudioRecorderAssemblyAI({ onTranscript }: AudioRecorderProps) {
@@ -98,7 +98,7 @@ export default function AudioRecorderAssemblyAI({ onTranscript }: AudioRecorderP
       }
 
       setTranscript(text)
-      onTranscript(text)
+      onTranscript(text, audioBlob) // Pass both transcript and audio blob
       
     } catch (err) {
       console.error("Transcription error:", err)

@@ -47,6 +47,10 @@ export default function Page() {
   // VoiceB (Recording) states
   const [voiceBTranscript, setVoiceBTranscript] = useState<string>("")
   const [voiceBResult, setVoiceBResult] = useState<ScorePayload | null>(null)
+  const [voiceBAudio, setVoiceBudio] = useState<Blob | null>(null) // Store audio blob for A-A mode
+  
+  // Evaluation mode: "text" (T-T) or "audio" (A-A)
+  const [evaluationMode, setEvaluationMode] = useState<"text" | "audio">("text")
   
   // Comparison states
   const [isComparing, setIsComparing] = useState<boolean>(false)
@@ -123,8 +127,11 @@ export default function Page() {
   }
 
   // Handler for speech recognition transcript (VoiceB)
-  const handleSpeechTranscript = (text: string) => {
+  const handleSpeechTranscript = (text: string, audioBlob?: Blob) => {
     setVoiceBTranscript(text)
+    if (audioBlob) {
+      setVoiceBudio(audioBlob) // Store audio for A-A mode
+    }
     setComparisonResult(null) // Clear previous comparison
   }
 
@@ -342,13 +349,52 @@ export default function Page() {
         <CardContent className="p-4 md:p-6 space-y-4">
           <AudioRecorderAssemblyAI onTranscript={handleSpeechTranscript} />
           
-          <Button 
-            onClick={handleCompareVoices} 
-            disabled={!voiceAResult || !voiceBTranscript || isComparing}
-            className="w-full"
-          >
-            {isComparing ? "Evaluating..." : "Evaluate & Compare"}
-          </Button>
+          {/* Evaluate Button and Mode Toggle */}
+          <div className="space-y-3">
+            <Button 
+              onClick={handleCompareVoices} 
+              disabled={!voiceAResult || !voiceBTranscript || isComparing}
+              className="w-full"
+            >
+              {isComparing ? "Evaluating..." : "Evaluate"}
+            </Button>
+
+            {/* Show mode toggle after user can evaluate */}
+            {voiceAResult && voiceBTranscript && !isComparing && (
+              <div className="flex items-center justify-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                <span className="text-xs font-medium text-gray-600">Evaluation Mode:</span>
+                <div className="inline-flex rounded-md shadow-sm" role="group">
+                  <button
+                    type="button"
+                    onClick={() => setEvaluationMode("audio")}
+                    className={cn(
+                      "px-3 py-1.5 text-xs font-medium rounded-l-md border transition-colors",
+                      evaluationMode === "audio"
+                        ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    )}
+                  >
+                    A-A
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEvaluationMode("text")}
+                    className={cn(
+                      "px-3 py-1.5 text-xs font-medium rounded-r-md border transition-colors",
+                      evaluationMode === "text"
+                        ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    )}
+                  >
+                    T-T
+                  </button>
+                </div>
+                <span className="text-xs text-gray-500">
+                  {evaluationMode === "audio" ? "(Audio Analysis)" : "(Text Analysis)"}
+                </span>
+              </div>
+            )}
+          </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
         </CardContent>
@@ -391,23 +437,8 @@ export default function Page() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Show extracted keywords first */}
-              <div className="grid md:grid-cols-2 gap-4 mb-6">
-                {/* Voice A Keywords */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="font-semibold text-blue-900 mb-3">Original Pitch Keywords</h3>
-                  <ul className="space-y-1">
-                    {comparisonResult.voiceAKeywords && comparisonResult.voiceAKeywords.length > 0 ? (
-                      comparisonResult.voiceAKeywords.map((keyword, idx) => (
-                        <li key={idx} className="text-sm text-blue-800">• {keyword}</li>
-                      ))
-                    ) : (
-                      <li className="text-sm text-blue-600 italic">Keywords not extracted</li>
-                    )}
-                  </ul>
-                </div>
-
-                {/* Voice B Keywords */}
+              {/* Show Your Pitch Keywords Only */}
+              <div className="mb-6">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <h3 className="font-semibold text-green-900 mb-3">Your Pitch Keywords</h3>
                   <ul className="space-y-1">
@@ -435,22 +466,23 @@ export default function Page() {
                 <div key={index} className="border-b pb-6 last:border-b-0">
                   <h3 className="font-semibold text-lg mb-4 text-gray-900">{note.metric}</h3>
                   
-                  {/* VoiceB Score Only */}
-                  <div className="bg-green-50 p-4 rounded-lg border border-green-200 mb-4">
-                    <div className="flex items-center justify-between">
+                  {/* Combined Score and Analysis Box */}
+                  <div className="bg-green-50 p-5 rounded-lg border border-green-200">
+                    {/* Score Display */}
+                    <div className="flex items-center justify-between mb-4">
                       <span className="text-sm font-semibold text-green-900">Your Pitch</span>
-                      <span className="text-3xl font-bold text-green-700">{note.voiceBScore}</span>
+                      <span className="text-4xl font-bold text-green-700">{note.voiceBScore}</span>
                     </div>
-                  </div>
-
-                  {/* Detailed Factors */}
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Analysis Factors:</h4>
-                    <ul className="space-y-1">
-                      {note.factors.map((factor: string, fIdx: number) => (
-                        <li key={fIdx} className="text-sm text-gray-700">{factor}</li>
-                      ))}
-                    </ul>
+                    
+                    {/* Analysis Factors */}
+                    <div className="border-t border-green-200 pt-3">
+                      <h4 className="text-xs font-semibold text-green-800 mb-2 uppercase tracking-wide">Analysis Factors:</h4>
+                      <ul className="space-y-1.5">
+                        {note.factors.map((factor: string, fIdx: number) => (
+                          <li key={fIdx} className="text-sm text-green-900/80">• {factor}</li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
                 </div>
               ))}
