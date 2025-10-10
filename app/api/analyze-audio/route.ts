@@ -72,58 +72,73 @@ export async function POST(req: Request): Promise<Response> {
 
 CONTEXT: Voice A is the reference/baseline audio (scores 80-95). Voice B is being evaluated.
 
-IMPORTANT: Voice A's score represents 100% for Voice B scoring. If Voice A scores 60 in pronunciation, that 60 = 100% baseline for Voice B.
+IMPORTANT: 
+- Voice A's score represents 100% for Voice B scoring. If Voice A scores 60 in pronunciation, that 60 = 100% baseline for Voice B.
+- BE STRICT: Only score high if delivery is truly professional
+- Incomplete, vague, or unprofessional pitches = 20-40 range
+- Dismissive tone or lack of confidence = 15-35 range
 
 AUDIO-BASED SCORING (0-100 each):
 
 1. **usageOfKeywords** (Content Analysis):
    - Medical terms, drug names, clinical terminology mentioned
    - Completeness of pitch content
-   - If Voice B mentions similar keywords as Voice A, score 85-95
+   - Vague content ("whatever drug", "or something") = 15-30
+   - Complete medical pitch = 70-90
 
 2. **pronunciation** (Voice Clarity):
    - Clear articulation of medical terms
-   - Correct emphasis and stress
-   - Natural vs. robotic delivery
-   - If delivery sounds confident and clear, score 75-90
+   - Professional language (no "whatever", "I don't care")
+   - Unprofessional tone = 10-25
+   - Professional delivery = 70-90
 
 3. **fluency** (Speech Flow):
    - Speaking pace (not too fast, not too slow)
    - Smooth transitions, no excessive hesitations
-   - Natural rhythm and timing
-   - Fewer filler words ("um", "uh")
-   - If similar pace to Voice A, score 80-95
+   - Broken/disjointed speech = 15-30
+   - Smooth professional flow = 75-90
 
 4. **objectionHandling** (Confidence & Tone):
    - Confidence level in voice
    - Persuasive tone
-   - Energy and enthusiasm
-   - Professional demeanor
-   - If voice sounds confident, score 70-85
+   - Dismissive/uninterested tone ("I don't want to explain") = 10-20
+   - Confident persuasive delivery = 70-85
 
 5. **queryResolution** (Completeness & Articulation):
    - Complete information delivery
-   - Clear enunciation of key details
-   - Maintains listener attention
-   - Comprehensive coverage
-   - If similar completeness to Voice A, score 75-90
+   - Vague or missing info = 15-30
+   - Comprehensive coverage = 75-90
+
+SCORING EXAMPLES:
+
+Good Professional Pitch (70-85 range):
+"Good morning doctor, for BPH prescribe Dosin D with clear dosage and benefits"
+- Clear, complete, professional
+
+Weak/Incomplete Pitch (20-35 range):
+"Dosing D is okay for BPH or whatever"
+- Vague, unprofessional "whatever"
+
+Terrible Pitch (10-25 range):
+"I don't want to explain this drug"
+- Dismissive, unprofessional, incomplete
 
 SCORING RULES:
 - Voice A is the BASELINE (always score 80-95 across metrics)
 - Voice B compared to Voice A baseline
-- Similar quality = within 10 points of Voice A
-- Small delivery issues = -5 to -15 points from baseline
-- Major issues (unclear, hesitant, incomplete) = -20 to -30 points
+- Similar PROFESSIONAL quality = within 10 points of Voice A
+- Unprofessional or incomplete = score 20-40 MAX
+- Dismissive tone = score 10-30 MAX
 
 Extract 5 keywords from transcripts.
 
 Return JSON:
 {
   "voiceA": {"usageOfKeywords": 85, "pronunciation": 88, "fluency": 90, "objectionHandling": 86, "queryResolution": 87},
-  "voiceB": {"usageOfKeywords": 82, "pronunciation": 80, "fluency": 85, "objectionHandling": 78, "queryResolution": 83},
+  "voiceB": {"usageOfKeywords": 25, "pronunciation": 20, "fluency": 28, "objectionHandling": 18, "queryResolution": 22},
   "voiceAKeywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
-  "voiceBKeywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"],
-  "differences": "Voice A demonstrates strong professional delivery with clear articulation. Voice B shows good content coverage but could improve speaking confidence and pace consistency."
+  "voiceBKeywords": ["dosing", "BPH", "doctor", "drug", "prescribing"],
+  "differences": "Voice A demonstrates strong professional delivery with clear articulation and complete information. Voice B shows unprofessional tone with dismissive language ('whatever drug'), incomplete pitch structure, and lack of confidence. Needs significant improvement in professional communication."
 }`
         },
         {

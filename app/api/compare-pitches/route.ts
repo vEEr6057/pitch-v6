@@ -119,6 +119,45 @@ Example 2 - Weak Medical Pitch (Voice B should score 30-45):
 - objectionHandling: 32 (says "good quality" but no real benefits)
 - queryResolution: 30 (no dosage, no details)
 
+CRITICAL SCORING RULES:
+- This is a PHARMACEUTICAL sales pitch - must be professional and complete
+- Incomplete pitches (missing key info) = 20-40 range
+- Confusing/unprofessional language = 15-35 range
+- Dismissive tone ("whatever", "I don't care") = 10-30 range
+- Complete professional pitches = 60-90 range
+
+STRICT EVALUATION:
+- If pitch is vague or incomplete, score LOW (20-40)
+- If pitch has unprofessional language, score VERY LOW (15-30)
+- If pitch lacks critical info (dosage, indication, benefits), score LOW (25-45)
+- Only score HIGH (70-90) if pitch is truly professional and complete
+
+PHARMACEUTICAL PITCH SCORING EXAMPLES:
+
+Example 1 - Good Medical Pitch (Voice B should score 65-80):
+"Good morning doctor, for BPH with prostate size >30cc, prescribe Dosin D. It contains Silodin 4.8mg + Dutasteride 0.5mg, manufactured in GMP plant with 24-hour efficacy for BPH symptoms."
+- usageOfKeywords: 75 (has drug name, indication, dosage, benefit)
+- pronunciation: 70 (clear medical communication)
+- fluency: 72 (follows indication→product→benefit flow)
+- objectionHandling: 68 (mentions 24-hour efficacy, GMP quality)
+- queryResolution: 70 (provides dosage, indication, when to prescribe)
+
+Example 2 - Weak/Incomplete Pitch (Voice B should score 20-35):
+"Dosing D is okay. Whatever drug we're prescribing for BPH or something."
+- usageOfKeywords: 30 (vague, no real details)
+- pronunciation: 25 (unprofessional language "whatever", "or something")
+- fluency: 28 (disjointed, incomplete)
+- objectionHandling: 20 (no benefits, dismissive tone)
+- queryResolution: 22 (no dosage, no real information)
+
+Example 3 - Terrible Pitch (Voice B should score 10-25):
+"I don't want to explain this drug. It's for prostate or whatever."
+- usageOfKeywords: 15 (almost no content)
+- pronunciation: 12 (very unprofessional, dismissive)
+- fluency: 18 (broken, no structure)
+- objectionHandling: 10 (actively refuses to provide benefits)
+- queryResolution: 12 (provides nothing useful)
+
 SCORING RULES:
 - Voice A: Always score 80-95 (it's the gold standard)
 - Voice B: Score 0-100 based on actual pharmaceutical pitch quality

@@ -146,8 +146,14 @@ export default function Page() {
     try {
       let comparisonData
 
+      console.log("=== Evaluation Mode ===", evaluationMode)
+      console.log("Voice A File:", voiceAFile?.name)
+      console.log("Voice B Audio:", voiceBAudio ? "Available" : "Missing")
+
       if (evaluationMode === "audio") {
         // A-A Mode: Audio-to-Audio comparison
+        console.log("🎙️ Using A-A Mode (Audio Analysis)")
+        
         if (!voiceAFile || !voiceBAudio) {
           throw new Error("Audio files not available for A-A mode")
         }
@@ -164,12 +170,17 @@ export default function Page() {
         })
 
         if (!compareRes.ok) {
+          const errorText = await compareRes.text()
+          console.error("A-A API Error:", errorText)
           throw new Error("Failed to analyze audio")
         }
 
         comparisonData = await compareRes.json()
+        console.log("A-A Response:", comparisonData)
       } else {
         // T-T Mode: Text-to-Text comparison (current system)
+        console.log("📝 Using T-T Mode (Text Analysis)")
+        
         const compareRes = await fetch("/api/compare-pitches", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
