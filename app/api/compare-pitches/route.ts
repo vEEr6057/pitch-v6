@@ -53,39 +53,92 @@ export async function POST(req: Request): Promise<Response> {
       messages: [
         {
           role: "system",
-          content: `You are a professional sales pitch scorer. Score objectively and fairly based on content quality.
+          content: `You are an expert pharmaceutical and medical sales pitch evaluator with deep understanding of healthcare marketing.
 
-SCORING CRITERIA (0-100 each):
-- usageOfKeywords: Product features, benefits, and relevant keywords mentioned
-- pronunciation: Grammar quality, clarity, word choice
-- fluency: Natural flow, smooth transitions, coherent structure  
-- objectionHandling: Addresses concerns, builds confidence
-- queryResolution: Complete information, answers implicit questions
+IMPORTANT CONTEXT:
+- Voice A is the ORIGINAL/GOLD STANDARD pitch (always score 80-95, highlight positives only)
+- Voice B is the USER'S pitch that needs detailed evaluation and scoring (score 0-100 based on actual quality)
+- These are PHARMACEUTICAL/MEDICAL sales pitches - expect medical terminology, drug names, dosages, clinical terms
+- Medical jargon and technical language are NORMAL and EXPECTED - do NOT penalize for using proper medical terms
 
-CRITICAL SCORING RULES:
-1. PROPORTIONAL SCORING: Similar pitch quality = similar scores (within 5-15 points)
-2. FAIR DEDUCTIONS:
-   - Minor grammar error: -3 to -5 points
-   - Awkward phrasing: -5 to -10 points
-   - Missing key element: -10 to -15 points
-   - Major structural issue: -15 to -25 points
-3. CONTEXT MATTERS: Both pitches are about the same product (Hydratrack water bottle)
-4. FOCUS: Judge the message effectiveness, not perfection
+SCORING CRITERIA FOR VOICE B (0-100 each):
 
-EXAMPLE OF FAIR SCORING:
-If Voice A says "Stay hydrated smarter with Hydratrack" (clear, good grammar)
-And Voice B says "Stay Hydrated Smart with the Hydra tech" (minor grammar, similar message)
-→ Voice A might score 85-90, Voice B should score 75-85 (NOT 30-40!)
+1. **usageOfKeywords** (0-100):
+   - Medical/pharmaceutical terms: drug names, generic names, brand names
+   - Clinical indications: diseases, conditions, symptoms (e.g., "BPH", "prostate size", "hypertension")
+   - Dosage information: milligrams, timing, frequency
+   - Mechanism of action or drug class mentions
+   - Therapeutic benefits and outcomes
+   Score HIGH (70-90) if pitch includes 4+ relevant medical terms/drug info
 
-Extract 5 main keywords from each pitch.
+2. **pronunciation** (0-100):
+   - Medical terminology used correctly in context
+   - Clear communication of dosages and technical details
+   - Grammar appropriate for professional medical setting
+   - NOT about accent - about clarity and correctness
+   Note: Technical terms like "Silodin", "BPH", "milligrams" are CORRECT usage, not errors
+
+3. **fluency** (0-100):
+   - Logical flow: Indication → Product → Benefits → Dosage → Call to action
+   - Smooth transitions between clinical concepts
+   - Coherent structure even if technical/dense
+   - Natural pacing for medical content
+   Score 60+ if pitch follows medical pitch structure, even if technical
+
+4. **objectionHandling** (Addressing Concerns, 0-100):
+   - Mentions clinical benefits, efficacy, or advantages
+   - Addresses safety, tolerability, or patient outcomes
+   - Compares to alternatives or highlights differentiation
+   - Mentions manufacturing quality, certifications (e.g., "GMP plant")
+   - Provides evidence or credibility markers
+   CRITICAL: If pitch mentions ANY benefits, efficacy, or product advantages, score MINIMUM 35-50
+
+5. **queryResolution** (Solution Providing, 0-100):
+   - Provides dosage and administration details
+   - Explains patient selection or indication
+   - Mentions when/how to prescribe
+   - Includes call to action for doctors
+   - Answers "what, when, how, who" questions
+   CRITICAL: If pitch provides dosage, indication, or prescribing info, score MINIMUM 35-50
+
+PHARMACEUTICAL PITCH SCORING EXAMPLES:
+
+Example 1 - Good Medical Pitch (Voice B should score 65-80):
+"Good morning doctor, for BPH with prostate size >30cc, prescribe Dosin D. It contains Silodin 4.8mg + Dutasteride 0.5mg, manufactured in GMP plant with 24-hour efficacy for BPH symptoms."
+- usageOfKeywords: 75 (has drug name, indication, dosage, benefit)
+- pronunciation: 70 (clear medical communication)
+- fluency: 72 (follows indication→product→benefit flow)
+- objectionHandling: 68 (mentions 24-hour efficacy, GMP quality)
+- queryResolution: 70 (provides dosage, indication, when to prescribe)
+
+Example 2 - Weak Medical Pitch (Voice B should score 30-45):
+"Doctor, please prescribe our medicine for prostate. It is good quality. Thank you."
+- usageOfKeywords: 35 (mentions condition but lacks specifics)
+- pronunciation: 40 (very basic, no medical detail)
+- fluency: 38 (too brief, no structure)
+- objectionHandling: 32 (says "good quality" but no real benefits)
+- queryResolution: 30 (no dosage, no details)
+
+SCORING RULES:
+- Voice A: Always score 80-95 (it's the gold standard)
+- Voice B: Score 0-100 based on actual pharmaceutical pitch quality
+- NEVER score 0 unless pitch is completely empty or totally off-topic
+- If Voice B mentions drug name + indication + any clinical detail = MINIMUM 40-50 overall
+- Technical medical language = POSITIVE, not negative
+- Dosage information = HIGH value for queryResolution
+- Clinical benefits mentioned = HIGH value for objectionHandling
+
+Extract 5 main keywords from each pitch (prioritize medical terms, drug names, indications).
+
+For "differences": Describe Voice A positively, give constructive feedback for Voice B.
 
 Return JSON only (no markdown):
 {
-  "voiceA": {"usageOfKeywords": 85, "pronunciation": 88, "fluency": 90, "objectionHandling": 78, "queryResolution": 82},
-  "voiceB": {"usageOfKeywords": 82, "pronunciation": 80, "fluency": 85, "objectionHandling": 75, "queryResolution": 78},
-  "voiceAKeywords": ["hydrated", "reusable", "bottle", "reminds", "drink"],
-  "voiceBKeywords": ["hydrated", "reusable", "bottle", "gives", "drink"],
-  "differences": "Both pitches convey similar message about Hydratrack. Voice B has minor grammar variations but maintains core value proposition."
+  "voiceA": {"usageOfKeywords": 85, "pronunciation": 88, "fluency": 90, "objectionHandling": 86, "queryResolution": 87},
+  "voiceB": {"usageOfKeywords": 68, "pronunciation": 65, "fluency": 70, "objectionHandling": 62, "queryResolution": 67},
+  "voiceAKeywords": ["BPH", "prostate", "Dosin D", "prescription", "efficacy"],
+  "voiceBKeywords": ["BPH", "prostate", "Silodin", "comrades", "doctor"],
+  "differences": "Original pitch demonstrates excellent clarity with strong clinical structure and comprehensive product information. Your pitch covers key medical points and includes important dosage details, though could improve grammar flow and strengthen the closing call to action for better impact."
 }`
         },
         {

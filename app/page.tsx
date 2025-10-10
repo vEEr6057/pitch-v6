@@ -178,40 +178,23 @@ export default function Page() {
         { key: "queryResolution", name: "Query Resolution" },
       ]
 
-      // Generate detailed factors for each metric
-      const generateFactors = (metric: string, voiceAScore: number, voiceBScore: number, voiceAText: string, voiceBText: string): string[] => {
+      // Generate detailed factors for each metric - ONLY Voice B analysis
+      const generateFactors = (metric: string, voiceBScore: number, voiceBText: string): string[] => {
         const factors: string[] = []
         
-        // Word count analysis
-        const voiceAWords = voiceAText.split(/\s+/).filter(w => w).length
+        // Word count analysis - only Voice B
         const voiceBWords = voiceBText.split(/\s+/).filter(w => w).length
-        factors.push(`Word count: Voice A (${voiceAWords} words) vs Voice B (${voiceBWords} words)`)
+        factors.push(`Word count: Your Pitch (${voiceBWords} words)`)
         
-        // Basic quality indicators based on scores
-        if (voiceAScore >= 80) {
-          factors.push(`Voice A: Strong performance (${voiceAScore}/100)`)
-        } else if (voiceAScore >= 60) {
-          factors.push(`Voice A: Good performance with room for improvement (${voiceAScore}/100)`)
-        } else {
-          factors.push(`Voice A: Needs significant improvement (${voiceAScore}/100)`)
-        }
-        
+        // Quality indicators based on Voice B score only
         if (voiceBScore >= 80) {
-          factors.push(`Voice B: Strong performance (${voiceBScore}/100)`)
+          factors.push(`Your Pitch: Strong performance (${voiceBScore}/100)`)
         } else if (voiceBScore >= 60) {
-          factors.push(`Voice B: Good performance with room for improvement (${voiceBScore}/100)`)
+          factors.push(`Your Pitch: Good performance with room for improvement (${voiceBScore}/100)`)
+        } else if (voiceBScore >= 40) {
+          factors.push(`Your Pitch: Moderate performance, needs improvement (${voiceBScore}/100)`)
         } else {
-          factors.push(`Voice B: Needs significant improvement (${voiceBScore}/100)`)
-        }
-        
-        // Score difference analysis
-        const diff = Math.abs(voiceAScore - voiceBScore)
-        if (diff <= 5) {
-          factors.push(`Very similar performance (${diff} point difference)`)
-        } else if (diff <= 15) {
-          factors.push(`Moderate difference in performance (${diff} point difference)`)
-        } else {
-          factors.push(`Significant difference in performance (${diff} point difference)`)
+          factors.push(`Your Pitch: Needs significant improvement (${voiceBScore}/100)`)
         }
         
         return factors
@@ -223,9 +206,7 @@ export default function Page() {
         voiceBScore: comparisonData.voiceB[metric.key as keyof Scores],
         factors: generateFactors(
           metric.name,
-          comparisonData.voiceA[metric.key as keyof Scores],
           comparisonData.voiceB[metric.key as keyof Scores],
-          updatedVoiceAResult.refinedText,
           voiceBData.refinedText
         )
       }))
@@ -262,14 +243,13 @@ export default function Page() {
         
         {/* Main Heading */}
         <h1 className="text-pretty text-2xl md:text-3xl">Voice Pitch Comparison</h1>
-        <p className="text-sm md:text-base text-muted-foreground">Compare reference pitch with your delivery</p>
       </header>
 
-      {/* Box 1: Upload VoiceA (Reference Pitch) */}
+      {/* Box 1: Upload VoiceA (Original Pitch) */}
       <Card className="shadow-md border-0">
         <CardHeader className="pb-4">
           <CardTitle className="text-balance text-base md:text-lg font-bold text-gray-800 text-center">
-            Upload Reference Pitch (VoiceA)
+            Upload Original Pitch (VoiceA)
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -337,7 +317,7 @@ export default function Page() {
 
                 {voiceAStatus === "completed" && (
                   <div className="p-3 bg-green-50 border border-green-200 rounded-md">
-                    <p className="text-sm font-medium text-green-800">Reference pitch uploaded and evaluated</p>
+                    <p className="text-sm font-medium text-green-800">Original pitch uploaded and evaluated</p>
                   </div>
                 )}
 
@@ -415,7 +395,7 @@ export default function Page() {
               <div className="grid md:grid-cols-2 gap-4 mb-6">
                 {/* Voice A Keywords */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="font-semibold text-blue-900 mb-3">Reference Pitch Keywords</h3>
+                  <h3 className="font-semibold text-blue-900 mb-3">Original Pitch Keywords</h3>
                   <ul className="space-y-1">
                     {comparisonResult.voiceAKeywords && comparisonResult.voiceAKeywords.length > 0 ? (
                       comparisonResult.voiceAKeywords.map((keyword, idx) => (
@@ -455,21 +435,11 @@ export default function Page() {
                 <div key={index} className="border-b pb-6 last:border-b-0">
                   <h3 className="font-semibold text-lg mb-4 text-gray-900">{note.metric}</h3>
                   
-                  <div className="grid md:grid-cols-2 gap-4 mb-4">
-                    {/* VoiceA Score */}
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-blue-900">Reference Pitch</span>
-                        <span className="text-3xl font-bold text-blue-700">{note.voiceAScore}</span>
-                      </div>
-                    </div>
-
-                    {/* VoiceB Score */}
-                    <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-green-900">Your Pitch</span>
-                        <span className="text-3xl font-bold text-green-700">{note.voiceBScore}</span>
-                      </div>
+                  {/* VoiceB Score Only */}
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-200 mb-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-green-900">Your Pitch</span>
+                      <span className="text-3xl font-bold text-green-700">{note.voiceBScore}</span>
                     </div>
                   </div>
 

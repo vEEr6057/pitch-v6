@@ -17,36 +17,35 @@ interface ScoreChartProps {
 
 // Use FC (FunctionComponent) type for better typing
 const ScoreChart: FC<ScoreChartProps> = ({ voiceAData, voiceBData }) => {
-  // Combine data for comparison
-  const combinedData = voiceAData.map((item, index) => ({
+  // Use only Voice B data for display
+  const chartData = voiceBData.map((item) => ({
     metric: item.metric
       .replace("Usage of Keywords", "Keywords")
       .replace("Pronunciation", "Delivery")
       .replace("Objection Handling", "Addressing")
       .replace("Query Resolution", "Solution"),
     fullMetric: item.metric,
-    voiceA: item.score,
-    voiceB: voiceBData[index].score,
+    voiceB: item.score,
   }));
   
   return (
     <div className="h-[400px] md:h-[500px] w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart 
-          data={combinedData} 
+          data={chartData} 
           margin={{ top: 20, right: 10, bottom: 60, left: 10 }} 
-          barSize={30}
+          barSize={50}
         >
           <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
           <XAxis
             dataKey="metric"
             tick={{ 
               fill: "var(--color-foreground)", 
-              fontSize: 10, 
-              angle: -45, 
-              textAnchor: 'end',
-              dy: 10 
-            }}
+              fontSize: 10
+            } as any}
+            angle={-45}
+            textAnchor="end"
+            dy={10}
             tickLine={{ stroke: "var(--color-border)" }}
             axisLine={{ stroke: "var(--color-border)" }}
             height={80}
@@ -59,9 +58,8 @@ const ScoreChart: FC<ScoreChartProps> = ({ voiceAData, voiceBData }) => {
             width={30}
           />
           <Tooltip
-            formatter={(value: number, name: string) => {
-              const displayName = name === "voiceA" ? "Reference Pitch" : "Your Pitch";
-              return [`${value}`, displayName];
+            formatter={(value: number) => {
+              return [`${value}`, "Your Pitch"];
             }}
             contentStyle={{
               background: "var(--color-popover)",
@@ -79,25 +77,11 @@ const ScoreChart: FC<ScoreChartProps> = ({ voiceAData, voiceBData }) => {
               paddingTop: "20px",
               fontSize: "14px"
             }}
-            formatter={(value) => {
-              return value === "voiceA" ? "Reference Pitch" : "Your Pitch";
-            }}
-          />
-          <Bar
-            dataKey="voiceA"
-            name="voiceA"
-            fill="#3b82f6"
-            radius={[4, 4, 0, 0]}
-            label={{ 
-              position: 'top',
-              fill: '#3b82f6',
-              fontSize: 11,
-              fontWeight: 600
-            }}
+            formatter={() => "Your Pitch"}
           />
           <Bar
             dataKey="voiceB"
-            name="voiceB"
+            name="Your Pitch"
             fill="#10b981"
             radius={[4, 4, 0, 0]}
             label={{ 
