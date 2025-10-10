@@ -144,21 +144,47 @@ export default function Page() {
     setComparisonResult(null)
 
     try {
-      // Use NEW AI comparison endpoint that compares both pitches together
-      const compareRes = await fetch("/api/compare-pitches", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          voiceATranscript: voiceAResult.refinedText,
-          voiceBTranscript: voiceBTranscript,
-        }),
-      })
+      let comparisonData
 
-      if (!compareRes.ok) {
-        throw new Error("Failed to compare pitches")
+      if (evaluationMode === "audio") {
+        // A-A Mode: Audio-to-Audio comparison
+        if (!voiceAFile || !voiceBAudio) {
+          throw new Error("Audio files not available for A-A mode")
+        }
+
+        const formData = new FormData()
+        formData.append("voiceA", voiceAFile)
+        formData.append("voiceB", voiceBAudio, "voiceB.webm")
+        formData.append("voiceATranscript", voiceAResult.refinedText)
+        formData.append("voiceBTranscript", voiceBTranscript)
+
+        const compareRes = await fetch("/api/analyze-audio", {
+          method: "POST",
+          body: formData,
+        })
+
+        if (!compareRes.ok) {
+          throw new Error("Failed to analyze audio")
+        }
+
+        comparisonData = await compareRes.json()
+      } else {
+        // T-T Mode: Text-to-Text comparison (current system)
+        const compareRes = await fetch("/api/compare-pitches", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            voiceATranscript: voiceAResult.refinedText,
+            voiceBTranscript: voiceBTranscript,
+          }),
+        })
+
+        if (!compareRes.ok) {
+          throw new Error("Failed to compare pitches")
+        }
+
+        comparisonData = await compareRes.json()
       }
-
-      const comparisonData = await compareRes.json()
       
       // Update voiceB result with new scores
       const voiceBData = {
