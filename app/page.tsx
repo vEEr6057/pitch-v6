@@ -1,8 +1,10 @@
 "use client"
 
-import { useState, useRef, ChangeEvent } from "react"
+import { useState, useRef, ChangeEvent, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import ScoreChart from "@/components/score-chart"
 import AudioRecorderAssemblyAI from "@/components/audio-recorder-assemblyai"
@@ -21,6 +23,15 @@ interface ScorePayload {
   scores: Scores;
   extractedKeywords?: string[];
   notes?: string;
+}
+
+interface CloudAudio {
+  id: string;
+  filename: string;
+  url: string;
+  format: string;
+  size: number;
+  createdAt: string;
 }
 
 interface ComparisonResult {
@@ -43,6 +54,12 @@ export default function Page() {
   const [voiceAStatus, setVoiceAStatus] = useState<"idle" | "uploading" | "processing" | "completed" | "error">("idle")
   const [voiceAResult, setVoiceAResult] = useState<ScorePayload | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // Cloud Audio states
+  const [cloudAudios, setCloudAudios] = useState<CloudAudio[]>([])
+  const [selectedCloudAudioId, setSelectedCloudAudioId] = useState<string>("")
+  const [isLoadingCloudAudios, setIsLoadingCloudAudios] = useState<boolean>(false)
+  const [cloudAudioLoadError, setCloudAudioLoadError] = useState<string>("")
   
   // VoiceB (Recording) states
   const [voiceBTranscript, setVoiceBTranscript] = useState<string>("")
@@ -121,8 +138,109 @@ export default function Page() {
     setVoiceAStatus("idle")
     setVoiceAResult(null)
     setComparisonResult(null)
+    setSelectedCloudAudioId("")
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
+    }
+  }
+
+  // Fetch cloud audios from Vercel Blob
+  const fetchCloudAudios = async () => {
+    setIsLoadingCloudAudios(true)
+    setCloudAudioLoadError("")
+    
+    try {
+      const response = await fetch("/api/list-cloud-audios")
+      if (!response.ok) {
+        throw new Error("Failed to fetch cloud audios")
+      }
+      
+      const data = await response.json()
+      setCloudAudios(data.audios || [])
+    } catch (err) {
+      console.error("Error fetching cloud audios:", err)
+      setCloudAudioLoadError(err instanceof Error ? err.message : "Failed to load cloud library")
+    } finally {
+      setIsLoadingCloudAudios(false)
+    }
+  }
+
+  // Load cloud audios on component mount
+  useEffect(() => {
+    fetchCloudAudios()
+  }, [])
+
+  // Handle cloud audio selection
+  const handleCloudAudioSelect = async (audioId: string) => {
+    if (!audioId) return
+    
+    setSelectedCloudAudioId(audioId)
+    setVoiceAStatus("uploading")
+    setError(null)
+    
+    try {
+      const selectedAudio = cloudAudios.find(a => a.id === audioId)
+      if (!selectedAudio) {
+        throw new Error("Selected audio not found")
+      }
+      
+      // Fetch the audio file from Vercel Blob URL
+      const audioResponse = await fetch(selectedAudio.url)
+      if (!audioResponse.ok) {
+        throw new Error("Failed to fetch audio file")
+      }
+      
+      const audioBlob = await audioResponse.blob()
+      const audioFile = new File([audioBlob], selectedAudio.filename + '.' + selectedAudio.format, {
+        type: `audio/${selectedAudio.format}`
+      })
+      
+      setVoiceAFile(audioFile)
+      setVoiceAStatus("processing")
+      
+      // Transcribe using OpenAI Whisper
+      const formData = new FormData()
+      formData.append("audio", audioFile)
+      
+      const transcribeRes = await fetch("/api/transcribe", {
+        method: "POST",
+        body: formData,
+      })
+      
+      if (!transcribeRes.ok) {
+        const errorData = await transcribeRes.json()
+        throw new Error(errorData.error || "Failed to process audio file")
+      }
+      
+      const { text } = await transcribeRes.json()
+      
+      if (!text || text.trim().length < 5) {
+        throw new Error("Could not extract speech from audio file")
+      }
+      
+      // Evaluate voiceA
+      const evaluateRes = await fetch("/api/refine-score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transcript: text,
+          keywords: [],
+          isSpeechInput: true,
+        }),
+      })
+      
+      if (!evaluateRes.ok) {
+        throw new Error("Failed to evaluate audio")
+      }
+      
+      const result = await evaluateRes.json()
+      setVoiceAResult(result)
+      setVoiceAStatus("completed")
+    } catch (err) {
+      console.error("Cloud audio selection error:", err)
+      setError(err instanceof Error ? err.message : "Failed to load cloud audio")
+      setVoiceAStatus("error")
+      setSelectedCloudAudioId("")
     }
   }
 
@@ -297,82 +415,146 @@ export default function Page() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-col items-center gap-4">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="audio/*"
-              onChange={handleVoiceAUpload}
-              className="hidden"
-              id="voiceA-upload"
-            />
+          <Tabs defaultValue="upload" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="upload">Upload from Device</TabsTrigger>
+              <TabsTrigger value="cloud">Cloud Library</TabsTrigger>
+            </TabsList>
             
-            {voiceAStatus === "idle" && (
-              <Button 
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full md:w-auto"
-              >
-                Choose Audio File
-              </Button>
-            )}
-
-            {voiceAFile && (
-              <div className="w-full space-y-3">
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-md">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-blue-900 truncate">{voiceAFile.name}</p>
-                    <p className="text-xs text-blue-700">
-                      {(voiceAFile.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                  </div>
+            <TabsContent value="upload" className="space-y-4">
+              <div className="flex flex-col items-center gap-4">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="audio/*"
+                  onChange={handleVoiceAUpload}
+                  className="hidden"
+                  id="voiceA-upload"
+                />
+                
+                {voiceAStatus === "idle" && !voiceAFile && (
                   <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleClearVoiceA}
-                    disabled={voiceAStatus === "uploading" || voiceAStatus === "processing"}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full md:w-auto"
                   >
-                    Remove
+                    Choose Audio File
                   </Button>
-                </div>
-
-                {/* Audio Player for uploaded file */}
-                <div className="rounded-md bg-green-50 border border-green-200 p-3">
-                  <p className="font-medium text-green-800 mb-2">🎵 Reference Audio (Voice A):</p>
-                  <audio 
-                    src={URL.createObjectURL(voiceAFile)} 
-                    controls 
-                    className="w-full"
-                  />
-                </div>
-
-                {voiceAStatus === "uploading" && (
-                  <div className="text-center">
-                    <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-                    <p className="text-sm text-muted-foreground mt-2">Uploading...</p>
-                  </div>
-                )}
-
-                {voiceAStatus === "processing" && (
-                  <div className="text-center">
-                    <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-                    <p className="text-sm text-muted-foreground mt-2">Processing audio...</p>
-                  </div>
-                )}
-
-                {voiceAStatus === "completed" && (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-md">
-                    <p className="text-sm font-medium text-green-800">Original pitch uploaded and evaluated</p>
-                  </div>
-                )}
-
-                {voiceAStatus === "error" && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                    <p className="text-sm font-medium text-red-800">Processing failed. Please try again.</p>
-                  </div>
                 )}
               </div>
-            )}
-          </div>
+            </TabsContent>
+            
+            <TabsContent value="cloud" className="space-y-4">
+              <div className="flex flex-col gap-3">
+                {isLoadingCloudAudios ? (
+                  <div className="text-center py-4">
+                    <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+                    <p className="text-sm text-muted-foreground mt-2">Loading cloud library...</p>
+                  </div>
+                ) : cloudAudioLoadError ? (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                    <p className="text-sm font-medium text-red-800">{cloudAudioLoadError}</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={fetchCloudAudios}
+                      className="mt-2"
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                ) : cloudAudios.length === 0 ? (
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-md text-center">
+                    <p className="text-sm font-medium text-blue-900">No audios found in cloud library</p>
+                    <p className="text-xs text-blue-700 mt-1">Generate audios in pitch-v3 first!</p>
+                  </div>
+                ) : (
+                  <>
+                    <label className="text-sm font-semibold text-gray-800">
+                      Select an audio from cloud library:
+                    </label>
+                    <Select 
+                      value={selectedCloudAudioId} 
+                      onValueChange={handleCloudAudioSelect}
+                      disabled={voiceAStatus === "uploading" || voiceAStatus === "processing"}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Choose a cloud audio..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {cloudAudios.map((audio) => (
+                          <SelectItem key={audio.id} value={audio.id}>
+                            <div className="flex flex-col py-1">
+                              <span className="font-medium">{audio.filename}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {audio.format.toUpperCase()} • {(audio.size / 1024).toFixed(0)} KB • {new Date(audio.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          {voiceAFile && (
+            <div className="w-full space-y-3">
+              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-md">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-blue-900 truncate">{voiceAFile.name}</p>
+                  <p className="text-xs text-blue-700">
+                    {(voiceAFile.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleClearVoiceA}
+                  disabled={voiceAStatus === "uploading" || voiceAStatus === "processing"}
+                >
+                  Remove
+                </Button>
+              </div>
+
+              {/* Audio Player for uploaded file */}
+              <div className="rounded-md bg-green-50 border border-green-200 p-3">
+                <p className="font-medium text-green-800 mb-2">🎵 Reference Audio (Voice A):</p>
+                <audio 
+                  src={URL.createObjectURL(voiceAFile)} 
+                  controls 
+                  className="w-full"
+                />
+              </div>
+
+              {voiceAStatus === "uploading" && (
+                <div className="text-center">
+                  <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+                  <p className="text-sm text-muted-foreground mt-2">Uploading...</p>
+                </div>
+              )}
+
+              {voiceAStatus === "processing" && (
+                <div className="text-center">
+                  <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+                  <p className="text-sm text-muted-foreground mt-2">Processing audio...</p>
+                </div>
+              )}
+
+              {voiceAStatus === "completed" && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                  <p className="text-sm font-medium text-green-800">Original pitch uploaded and evaluated</p>
+                </div>
+              )}
+
+              {voiceAStatus === "error" && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm font-medium text-red-800">Processing failed. Please try again.</p>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
