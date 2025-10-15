@@ -150,12 +150,21 @@ export default function Page() {
     setCloudAudioLoadError("")
     
     try {
+      console.log('Fetching cloud audios from /api/list-cloud-audios...')
       const response = await fetch("/api/list-cloud-audios")
+      
+      console.log('Response status:', response.status)
+      
       if (!response.ok) {
-        throw new Error("Failed to fetch cloud audios")
+        const errorData = await response.json()
+        console.error('API error:', errorData)
+        throw new Error(errorData.error || "Failed to fetch cloud audios")
       }
       
       const data = await response.json()
+      console.log('Received cloud audios:', data.audios?.length || 0, 'files')
+      console.log('Audio details:', data.audios)
+      
       setCloudAudios(data.audios || [])
     } catch (err) {
       console.error("Error fetching cloud audios:", err)
