@@ -150,21 +150,12 @@ export default function Page() {
     setCloudAudioLoadError("")
     
     try {
-      console.log('Fetching cloud audios from /api/list-cloud-audios...')
       const response = await fetch("/api/list-cloud-audios")
-      
-      console.log('Response status:', response.status)
-      
       if (!response.ok) {
-        const errorData = await response.json()
-        console.error('API error:', errorData)
-        throw new Error(errorData.error || "Failed to fetch cloud audios")
+        throw new Error("Failed to fetch cloud audios")
       }
       
       const data = await response.json()
-      console.log('Received cloud audios:', data.audios?.length || 0, 'files')
-      console.log('Audio details:', data.audios)
-      
       setCloudAudios(data.audios || [])
     } catch (err) {
       console.error("Error fetching cloud audios:", err)
@@ -425,9 +416,19 @@ export default function Page() {
         </CardHeader>
         <CardContent className="space-y-4">
           <Tabs defaultValue="upload" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="upload">Upload from Device</TabsTrigger>
-              <TabsTrigger value="cloud">Cloud Library</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 bg-transparent gap-2 p-0">
+              <TabsTrigger 
+                value="upload"
+                className="border-2 border-green-500 text-green-700 data-[state=active]:bg-green-50 data-[state=active]:text-green-700 hover:bg-green-50"
+              >
+                Upload from Device
+              </TabsTrigger>
+              <TabsTrigger 
+                value="cloud"
+                className="border-2 border-green-500 text-green-700 data-[state=active]:bg-green-50 data-[state=active]:text-green-700 hover:bg-green-50"
+              >
+                Cloud Library
+              </TabsTrigger>
             </TabsList>
             
             <TabsContent value="upload" className="space-y-4">
@@ -510,25 +511,10 @@ export default function Page() {
 
           {voiceAFile && (
             <div className="w-full space-y-3">
-              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-md">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-blue-900 truncate">{voiceAFile.name}</p>
-                  <p className="text-xs text-blue-700">
-                    {(voiceAFile.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={handleClearVoiceA}
-                  disabled={voiceAStatus === "uploading" || voiceAStatus === "processing"}
-                >
-                  Remove
-                </Button>
-              </div>
+              {/* Filename row hidden as per user request */}
 
               {/* Audio Player for uploaded file */}
-              <div className="rounded-md bg-green-50 border border-green-200 p-3">
+              <div className="rounded-md bg-white border border-green-200 p-3">
                 <p className="font-medium text-green-800 mb-2">🎵 Reference Audio (Voice A):</p>
                 <audio 
                   src={URL.createObjectURL(voiceAFile)} 
@@ -552,8 +538,14 @@ export default function Page() {
               )}
 
               {voiceAStatus === "completed" && (
-                <div className="p-3 bg-green-50 border border-green-200 rounded-md">
-                  <p className="text-sm font-medium text-green-800">Original pitch uploaded and evaluated</p>
+                <div className="p-3 bg-green-50 border border-green-200 rounded-md space-y-2">
+                  <p className="text-sm font-medium text-green-800">✅ Original pitch uploaded and evaluated</p>
+                  {voiceAResult?.refinedText && (
+                    <div className="mt-2 p-2 bg-white border border-green-300 rounded">
+                      <p className="text-xs font-semibold text-gray-700 mb-1">Transcript:</p>
+                      <p className="text-sm text-gray-900">{voiceAResult.refinedText}</p>
+                    </div>
+                  )}
                 </div>
               )}
 

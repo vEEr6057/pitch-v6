@@ -122,7 +122,8 @@ export default function AudioRecorderAssemblyAI({ onTranscript }: AudioRecorderP
         {!isRecording && !isProcessing && !transcript && (
           <Button 
             onClick={startRecording}
-            variant="default"
+            variant="outline"
+            className="border-2 border-orange-500 text-orange-700 hover:bg-orange-50 hover:text-orange-700"
           >
             🎤 Start Recording
           </Button>
