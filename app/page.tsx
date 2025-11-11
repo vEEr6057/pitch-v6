@@ -297,7 +297,7 @@ export default function Page() {
         console.log("A-A Response:", comparisonData)
       } else {
         // T-T Mode: Text-to-Text comparison (current system)
-        console.log("📝 Using T-T Mode (Text Analysis)")
+        console.log("Using T-T Mode (Text Analysis)")
         
         const compareRes = await fetch("/api/compare-pitches", {
           method: "POST",
@@ -515,7 +515,7 @@ export default function Page() {
 
               {/* Audio Player for uploaded file */}
               <div className="rounded-md bg-white border border-green-200 p-3">
-                <p className="font-medium text-green-800 mb-2">🎵 Reference Audio (Voice A):</p>
+                <p className="font-medium text-green-800 mb-2">Reference Audio (Voice A):</p>
                 <audio 
                   src={URL.createObjectURL(voiceAFile)} 
                   controls 
@@ -538,8 +538,8 @@ export default function Page() {
               )}
 
               {voiceAStatus === "completed" && (
-                <div className="p-3 bg-green-50 border border-green-200 rounded-md space-y-2">
-                  <p className="text-sm font-medium text-green-800">✅ Original pitch uploaded and evaluated</p>
+                <div className="p-3 bg-white border border-green-200 rounded-md space-y-2">
+                  <p className="text-sm font-medium text-green-800">Original pitch uploaded and evaluated</p>
                   {voiceAResult?.refinedText && (
                     <div className="mt-2 p-2 bg-white border border-green-300 rounded">
                       <p className="text-xs font-semibold text-gray-700 mb-1">Transcript:</p>

@@ -125,7 +125,7 @@ export default function AudioRecorderAssemblyAI({ onTranscript }: AudioRecorderP
             variant="outline"
             className="border-2 border-orange-500 text-orange-700 hover:bg-orange-50 hover:text-orange-700"
           >
-            🎤 Start Recording
+            Start Recording
           </Button>
         )}
         
@@ -135,7 +135,7 @@ export default function AudioRecorderAssemblyAI({ onTranscript }: AudioRecorderP
             variant="destructive"
             className="animate-pulse"
           >
-            ⏹ Stop Recording
+            Stop Recording
           </Button>
         )}
 
@@ -157,11 +157,11 @@ export default function AudioRecorderAssemblyAI({ onTranscript }: AudioRecorderP
             : "text-muted-foreground"
         }`}>
           {isRecording 
-            ? "🔴 Recording... Click Stop when finished" 
+            ? "Recording... Click Stop when finished" 
             : isProcessing
-            ? "⚙️ Processing your speech..."
+            ? "Processing your speech..."
             : transcript
-            ? "✅ Recording complete"
+            ? "Recording complete"
             : "Click Start to record your pitch"
           }
         </span>
@@ -200,13 +200,13 @@ export default function AudioRecorderAssemblyAI({ onTranscript }: AudioRecorderP
 
       {audioURL && transcript && (
         <div className="space-y-3">
-          <div className="rounded-md bg-green-50 border border-green-200 p-3">
-            <p className="font-medium text-green-800 mb-2">🎵 Your Recording:</p>
+          <div className="rounded-md bg-white border border-green-200 p-3">
+            <p className="font-medium text-green-800 mb-2">Your Recording:</p>
             <audio src={audioURL} controls className="w-full" />
           </div>
           
-          <div className="rounded-md bg-blue-50 border border-blue-200 p-3 text-sm">
-            <p className="font-medium text-blue-800 mb-2">📝 Transcription:</p>
+          <div className="rounded-md bg-white border border-blue-200 p-3 text-sm">
+            <p className="font-medium text-blue-800 mb-2">Transcription:</p>
             <p className="text-blue-700 whitespace-pre-wrap">{transcript}</p>
           </div>
         </div>
