@@ -1,31 +1,41 @@
 "use client"
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from "recharts"
 import { FC } from "react"
 
-// Define interface for the data point
-interface Point {
-  metric: string;
-  score: number;
+// Define interface for the scores
+interface Scores {
+  usageOfKeywords: number
+  pronunciation: number
+  fluency: number
+  objectionHandling: number
+  queryResolution: number
+  eyeContact: number
 }
 
 // Define interface for component props
 interface ScoreChartProps {
-  voiceAData: Point[];
-  voiceBData: Point[];
+  data: Scores
+  referenceData: Scores
 }
 
 // Use FC (FunctionComponent) type for better typing
-const ScoreChart: FC<ScoreChartProps> = ({ voiceAData, voiceBData }) => {
-  // Use only Voice B data for display
-  const chartData = voiceBData.map((item) => ({
-    metric: item.metric
-      .replace("Usage of Keywords", "Keywords")
-      .replace("Pronunciation", "Delivery")
-      .replace("Objection Handling", "Addressing")
-      .replace("Query Resolution", "Solution"),
-    fullMetric: item.metric,
-    voiceB: item.score,
+const ScoreChart: FC<ScoreChartProps> = ({ data, referenceData }) => {
+  // Convert scores object to array format for chart
+  const metricLabels = {
+    usageOfKeywords: "Keywords",
+    pronunciation: "Delivery",
+    fluency: "Fluency",
+    objectionHandling: "Addressing",
+    queryResolution: "Solution",
+    eyeContact: "Eye Contact"
+  }
+  
+  const chartData = Object.entries(data).map(([key, value]) => ({
+    metric: metricLabels[key as keyof Scores],
+    fullMetric: key,
+    videoB: value,
+    videoA: referenceData[key as keyof Scores]
   }));
   
   return (
@@ -58,8 +68,10 @@ const ScoreChart: FC<ScoreChartProps> = ({ voiceAData, voiceBData }) => {
             width={30}
           />
           <Tooltip
-            formatter={(value: number) => {
-              return [`${value}`, "Your Pitch"];
+            formatter={(value: number, name: string) => {
+              if (name === 'videoB') return [`${value}`, "Your Pitch"]
+              if (name === 'videoA') return [`${value}`, "Benchmark"]
+              return [`${value}`, name]
             }}
             contentStyle={{
               background: "var(--color-popover)",
@@ -77,10 +89,9 @@ const ScoreChart: FC<ScoreChartProps> = ({ voiceAData, voiceBData }) => {
               paddingTop: "20px",
               fontSize: "14px"
             }}
-            formatter={() => "Your Pitch"}
           />
           <Bar
-            dataKey="voiceB"
+            dataKey="videoB"
             name="Your Pitch"
             fill="#10b981"
             radius={[4, 4, 0, 0]}
@@ -91,11 +102,19 @@ const ScoreChart: FC<ScoreChartProps> = ({ voiceAData, voiceBData }) => {
               fontWeight: 600
             }}
           />
+          <Bar
+            dataKey="videoA"
+            name="Benchmark"
+            fill="#94a3b8"
+            radius={[4, 4, 0, 0]}
+            opacity={0.3}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>
   )
 }
 
-// Export the component
+export default ScoreChart
+
 export default ScoreChart;
