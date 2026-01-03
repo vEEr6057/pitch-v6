@@ -115,6 +115,4 @@ const ScoreChart: FC<ScoreChartProps> = ({ data, referenceData }) => {
   )
 }
 
-export default ScoreChart
-
 export default ScoreChart;
