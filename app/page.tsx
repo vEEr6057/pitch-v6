@@ -1,727 +1,642 @@
 "use client"
 
-import { useState, useRef, ChangeEvent, useEffect } from "react"
+import { useState, useRef, ChangeEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import ScoreChart from "@/components/score-chart"
-import AudioRecorderAssemblyAI from "@/components/audio-recorder-assemblyai"
+import { Upload, Video, Loader2, CheckCircle2, XCircle, AlertCircle } from "lucide-react"
 
-// Define interfaces for better type organization
+// Define interfaces for video evaluation
 interface Scores {
-  usageOfKeywords: number;
-  pronunciation: number;
-  fluency: number;
-  objectionHandling: number;
-  queryResolution: number;
+  usageOfKeywords: number
+  pronunciation: number
+  fluency: number
+  objectionHandling: number
+  queryResolution: number
+  eyeContact: number // NEW metric
 }
 
-interface ScorePayload {
-  refinedText: string;
-  scores: Scores;
-  extractedKeywords?: string[];
-  notes?: string;
-}
-
-interface CloudAudio {
-  id: string;
-  filename: string;
-  url: string;
-  format: string;
-  size: number;
-  createdAt: string;
+interface VideoResult {
+  scores: Scores
+  transcript: string
+  eyeContactDetails?: {
+    totalFrames: number
+    eyeContactFrames: number
+    faceDetectionRate: number
+  }
 }
 
 interface ComparisonResult {
-  voiceA: ScorePayload;
-  voiceB: ScorePayload;
-  voiceAKeywords?: string[];
-  voiceBKeywords?: string[];
-  differences?: string;
-  detailedNotes: {
-    metric: string;
-    voiceAScore: number;
-    voiceBScore: number;
-    factors: string[];
-  }[];
+  videoA: VideoResult
+  videoB: VideoResult
+  comparison: {
+    overallDifference: number
+    strengths: string[]
+    improvements: string[]
+  }
+  eyeContactAnalysis: {
+    videoA: { score: number; feedback: string }
+    videoB: { score: number; feedback: string }
+  }
 }
 
 export default function Page() {
-  // VoiceA (Upload) states
-  const [voiceAFile, setVoiceAFile] = useState<File | null>(null)
-  const [voiceAStatus, setVoiceAStatus] = useState<"idle" | "uploading" | "processing" | "completed" | "error">("idle")
-  const [voiceAResult, setVoiceAResult] = useState<ScorePayload | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  // VideoA (Reference) states
+  const [videoAFile, setVideoAFile] = useState<File | null>(null)
+  const [videoAUrl, setVideoAUrl] = useState<string | null>(null)
+  const [videoAStatus, setVideoAStatus] = useState<"idle" | "processing" | "completed" | "error">("idle")
+  const videoAInputRef = useRef<HTMLInputElement>(null)
   
-  // Cloud Audio states
-  const [cloudAudios, setCloudAudios] = useState<CloudAudio[]>([])
-  const [selectedCloudAudioId, setSelectedCloudAudioId] = useState<string>("")
-  const [isLoadingCloudAudios, setIsLoadingCloudAudios] = useState<boolean>(false)
-  const [cloudAudioLoadError, setCloudAudioLoadError] = useState<string>("")
+  // VideoB (User) states
+  const [videoBFile, setVideoBFile] = useState<File | null>(null)
+  const [videoBUrl, setVideoBUrl] = useState<string | null>(null)
+  const [videoBStatus, setVideoBStatus] = useState<"idle" | "processing" | "completed" | "error">("idle")
+  const [isRecording, setIsRecording] = useState(false)
+  const videoBInputRef = useRef<HTMLInputElement>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const videoStreamRef = useRef<MediaStream | null>(null)
   
-  // VoiceB (Recording) states
-  const [voiceBTranscript, setVoiceBTranscript] = useState<string>("")
-  const [voiceBResult, setVoiceBResult] = useState<ScorePayload | null>(null)
-  const [voiceBAudio, setVoiceBudio] = useState<Blob | null>(null) // Store audio blob for A-A mode
-  
-  // Evaluation mode: "text" (T-T) or "audio" (A-A)
-  const [evaluationMode, setEvaluationMode] = useState<"text" | "audio">("text")
-  
-  // Comparison states
-  const [isComparing, setIsComparing] = useState<boolean>(false)
+  // Evaluation states
+  const [isEvaluating, setIsEvaluating] = useState(false)
   const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  
+  // Recording guidelines
+  const [showGuidelines, setShowGuidelines] = useState(false)
 
-  // Handle VoiceA file upload
-  const handleVoiceAUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+  // Handle VideoA upload
+  const handleVideoAUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    setVoiceAFile(file)
-    setVoiceAStatus("uploading")
+    // Validate file
+    if (!file.type.startsWith('video/')) {
+      setError("Please upload a valid video file")
+      return
+    }
+
+    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+      setError("Video file is too large (max 50MB)")
+      return
+    }
+
+    setVideoAFile(file)
+    setVideoAUrl(URL.createObjectURL(file))
+    setVideoAStatus("processing")
+    setError(null)
+    setComparisonResult(null)
+
+    // Status will be updated to "completed" when user clicks evaluate
+    setTimeout(() => setVideoAStatus("completed"), 500)
+  }
+
+  // Clear VideoA
+  const handleClearVideoA = () => {
+    if (videoAUrl) URL.revokeObjectURL(videoAUrl)
+    setVideoAFile(null)
+    setVideoAUrl(null)
+    setVideoAStatus("idle")
+    setComparisonResult(null)
+    if (videoAInputRef.current) {
+      videoAInputRef.current.value = ""
+    }
+  }
+
+  // Handle VideoB upload
+  const handleVideoBUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('video/')) {
+      setError("Please upload a valid video file")
+      return
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      setError("Video file is too large (max 50MB)")
+      return
+    }
+
+    setVideoBFile(file)
+    setVideoBUrl(URL.createObjectURL(file))
+    setVideoBStatus("processing")
+    setError(null)
+    setComparisonResult(null)
+
+    setTimeout(() => setVideoBStatus("completed"), 500)
+  }
+
+  // Start video recording
+  const handleStartRecording = async () => {
+    setShowGuidelines(true)
+    setError(null)
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 854 },
+          height: { ideal: 480 },
+          facingMode: "user"
+        },
+        audio: true
+      })
+      
+      videoStreamRef.current = stream
+      
+      // Show preview
+      const videoPreview = document.getElementById('videoPreview') as HTMLVideoElement
+      if (videoPreview) {
+        videoPreview.srcObject = stream
+        videoPreview.play()
+      }
+      
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'video/webm'
+      })
+      
+      const chunks: Blob[] = []
+      
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunks.push(e.data)
+        }
+      }
+      
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' })
+        const file = new File([blob], `pitch-recording-${Date.now()}.webm`, { type: 'video/webm' })
+        
+        setVideoBFile(file)
+        setVideoBUrl(URL.createObjectURL(blob))
+        setVideoBStatus("completed")
+        
+        // Stop stream
+        stream.getTracks().forEach(track => track.stop())
+        videoStreamRef.current = null
+        
+        // Clear preview
+        if (videoPreview) {
+          videoPreview.srcObject = null
+        }
+      }
+      
+      mediaRecorderRef.current = mediaRecorder
+      mediaRecorder.start()
+      setIsRecording(true)
+      
+      // Auto-stop after 45 seconds
+      setTimeout(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          handleStopRecording()
+        }
+      }, 45000)
+      
+    } catch (err) {
+      console.error('Recording error:', err)
+      setError('Failed to access camera/microphone. Please check permissions.')
+      setShowGuidelines(false)
+    }
+  }
+
+  // Stop video recording
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop()
+      setIsRecording(false)
+      setShowGuidelines(false)
+    }
+  }
+
+  // Clear VideoB
+  const handleClearVideoB = () => {
+    if (videoBUrl) URL.revokeObjectURL(videoBUrl)
+    setVideoBFile(null)
+    setVideoBUrl(null)
+    setVideoBStatus("idle")
+    setComparisonResult(null)
+    if (videoBInputRef.current) {
+      videoBInputRef.current.value = ""
+    }
+    
+    // Stop recording if active
+    if (isRecording) {
+      handleStopRecording()
+    }
+  }
+
+  // Evaluate both videos
+  const handleEvaluate = async () => {
+    if (!videoAFile || !videoBFile) {
+      setError("Please upload both videos")
+      return
+    }
+
+    setIsEvaluating(true)
     setError(null)
 
     try {
-      // Create FormData for file upload
       const formData = new FormData()
-      formData.append("audio", file)
+      formData.append('videoA', videoAFile)
+      formData.append('videoB', videoBFile)
 
-      setVoiceAStatus("processing")
-
-      // Upload and transcribe voiceA using OpenAI Whisper (FAST - 2-3 seconds!)
-      const transcribeRes = await fetch("/api/transcribe", {
-        method: "POST",
-        body: formData,
+      const response = await fetch('/api/evaluate-videos', {
+        method: 'POST',
+        body: formData
       })
 
-      if (!transcribeRes.ok) {
-        const errorData = await transcribeRes.json()
-        throw new Error(errorData.error || "Failed to process audio file")
-      }
-
-      const { text } = await transcribeRes.json()
-
-      if (!text || text.trim().length < 5) {
-        throw new Error("Could not extract speech from audio file")
-      }
-
-      // Evaluate voiceA (speech-based) - user never sees the transcript
-      const evaluateRes = await fetch("/api/refine-score", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          transcript: text,
-          keywords: [],
-          isSpeechInput: true,
-        }),
-      })
-
-      if (!evaluateRes.ok) {
-        throw new Error("Failed to evaluate audio")
-      }
-
-      const result = await evaluateRes.json()
-      setVoiceAResult(result)
-      setVoiceAStatus("completed")
-    } catch (err) {
-      console.error("VoiceA processing error:", err)
-      setError(err instanceof Error ? err.message : "Failed to process audio")
-      setVoiceAStatus("error")
-    }
-  }
-
-  // Clear voiceA upload
-  const handleClearVoiceA = () => {
-    setVoiceAFile(null)
-    setVoiceAStatus("idle")
-    setVoiceAResult(null)
-    setComparisonResult(null)
-    setSelectedCloudAudioId("")
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ""
-    }
-  }
-
-  // Fetch cloud audios from Vercel Blob
-  const fetchCloudAudios = async () => {
-    setIsLoadingCloudAudios(true)
-    setCloudAudioLoadError("")
-    
-    try {
-      const response = await fetch("/api/list-cloud-audios")
       if (!response.ok) {
-        throw new Error("Failed to fetch cloud audios")
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to evaluate videos')
       }
-      
-      const data = await response.json()
-      setCloudAudios(data.audios || [])
+
+      const result = await response.json()
+      setComparisonResult(result)
     } catch (err) {
-      console.error("Error fetching cloud audios:", err)
-      setCloudAudioLoadError(err instanceof Error ? err.message : "Failed to load cloud library")
+      console.error('Evaluation error:', err)
+      setError(err instanceof Error ? err.message : 'Failed to evaluate videos')
     } finally {
-      setIsLoadingCloudAudios(false)
-    }
-  }
-
-  // Load cloud audios on component mount
-  useEffect(() => {
-    fetchCloudAudios()
-  }, [])
-
-  // Handle cloud audio selection
-  const handleCloudAudioSelect = async (audioId: string) => {
-    if (!audioId) return
-    
-    setSelectedCloudAudioId(audioId)
-    setVoiceAStatus("uploading")
-    setError(null)
-    
-    try {
-      const selectedAudio = cloudAudios.find(a => a.id === audioId)
-      if (!selectedAudio) {
-        throw new Error("Selected audio not found")
-      }
-      
-      // Fetch the audio file from Vercel Blob URL
-      const audioResponse = await fetch(selectedAudio.url)
-      if (!audioResponse.ok) {
-        throw new Error("Failed to fetch audio file")
-      }
-      
-      const audioBlob = await audioResponse.blob()
-      const audioFile = new File([audioBlob], selectedAudio.filename + '.' + selectedAudio.format, {
-        type: `audio/${selectedAudio.format}`
-      })
-      
-      setVoiceAFile(audioFile)
-      setVoiceAStatus("processing")
-      
-      // Transcribe using OpenAI Whisper
-      const formData = new FormData()
-      formData.append("audio", audioFile)
-      
-      const transcribeRes = await fetch("/api/transcribe", {
-        method: "POST",
-        body: formData,
-      })
-      
-      if (!transcribeRes.ok) {
-        const errorData = await transcribeRes.json()
-        throw new Error(errorData.error || "Failed to process audio file")
-      }
-      
-      const { text } = await transcribeRes.json()
-      
-      if (!text || text.trim().length < 5) {
-        throw new Error("Could not extract speech from audio file")
-      }
-      
-      // Evaluate voiceA
-      const evaluateRes = await fetch("/api/refine-score", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          transcript: text,
-          keywords: [],
-          isSpeechInput: true,
-        }),
-      })
-      
-      if (!evaluateRes.ok) {
-        throw new Error("Failed to evaluate audio")
-      }
-      
-      const result = await evaluateRes.json()
-      setVoiceAResult(result)
-      setVoiceAStatus("completed")
-    } catch (err) {
-      console.error("Cloud audio selection error:", err)
-      setError(err instanceof Error ? err.message : "Failed to load cloud audio")
-      setVoiceAStatus("error")
-      setSelectedCloudAudioId("")
-    }
-  }
-
-  // Handler for speech recognition transcript (VoiceB)
-  const handleSpeechTranscript = (text: string, audioBlob?: Blob) => {
-    setVoiceBTranscript(text)
-    if (audioBlob) {
-      setVoiceBudio(audioBlob) // Store audio for A-A mode
-    }
-    setComparisonResult(null) // Clear previous comparison
-  }
-
-  // Handle comparison evaluation
-  async function handleCompareVoices(): Promise<void> {
-    if (!voiceAResult || !voiceBTranscript) return
-
-    setError(null)
-    setIsComparing(true)
-    setComparisonResult(null)
-
-    try {
-      let comparisonData
-
-      console.log("=== Evaluation Mode ===", evaluationMode)
-      console.log("Voice A File:", voiceAFile?.name)
-      console.log("Voice B Audio:", voiceBAudio ? "Available" : "Missing")
-
-      if (evaluationMode === "audio") {
-        // A-A Mode: Audio-to-Audio comparison
-        console.log("🎙️ Using A-A Mode (Audio Analysis)")
-        
-        if (!voiceAFile || !voiceBAudio) {
-          throw new Error("Audio files not available for A-A mode")
-        }
-
-        const formData = new FormData()
-        formData.append("voiceA", voiceAFile)
-        formData.append("voiceB", voiceBAudio, "voiceB.webm")
-        formData.append("voiceATranscript", voiceAResult.refinedText)
-        formData.append("voiceBTranscript", voiceBTranscript)
-
-        const compareRes = await fetch("/api/analyze-audio", {
-          method: "POST",
-          body: formData,
-        })
-
-        if (!compareRes.ok) {
-          const errorText = await compareRes.text()
-          console.error("A-A API Error:", errorText)
-          throw new Error("Failed to analyze audio")
-        }
-
-        comparisonData = await compareRes.json()
-        console.log("A-A Response:", comparisonData)
-      } else {
-        // T-T Mode: Text-to-Text comparison (current system)
-        console.log("Using T-T Mode (Text Analysis)")
-        
-        const compareRes = await fetch("/api/compare-pitches", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            voiceATranscript: voiceAResult.refinedText,
-            voiceBTranscript: voiceBTranscript,
-          }),
-        })
-
-        if (!compareRes.ok) {
-          throw new Error("Failed to compare pitches")
-        }
-
-        comparisonData = await compareRes.json()
-      }
-      
-      // Update voiceB result with new scores
-      const voiceBData = {
-        refinedText: voiceBTranscript,
-        scores: comparisonData.voiceB,
-        extractedKeywords: [],
-        notes: comparisonData.reasoning,
-      }
-      setVoiceBResult(voiceBData)
-
-      // Update voiceA result with potentially adjusted scores
-      const updatedVoiceAResult = {
-        ...voiceAResult,
-        scores: comparisonData.voiceA,
-      }
-      setVoiceAResult(updatedVoiceAResult)
-
-      // Create simple comparison result
-      const metrics = [
-        { key: "usageOfKeywords", name: "Usage of Keywords" },
-        { key: "pronunciation", name: "Pronunciation" },
-        { key: "fluency", name: "Fluency" },
-        { key: "objectionHandling", name: "Objection Handling" },
-        { key: "queryResolution", name: "Query Resolution" },
-      ]
-
-      // Generate detailed factors for each metric - ONLY Voice B analysis
-      const generateFactors = (metric: string, voiceBScore: number, voiceBText: string): string[] => {
-        const factors: string[] = []
-        
-        // Word count analysis - only Voice B
-        const voiceBWords = voiceBText.split(/\s+/).filter(w => w).length
-        factors.push(`Word count: Your Pitch (${voiceBWords} words)`)
-        
-        // Quality indicators based on Voice B score only
-        if (voiceBScore >= 80) {
-          factors.push(`Your Pitch: Strong performance (${voiceBScore}/100)`)
-        } else if (voiceBScore >= 60) {
-          factors.push(`Your Pitch: Good performance with room for improvement (${voiceBScore}/100)`)
-        } else if (voiceBScore >= 40) {
-          factors.push(`Your Pitch: Moderate performance, needs improvement (${voiceBScore}/100)`)
-        } else {
-          factors.push(`Your Pitch: Needs significant improvement (${voiceBScore}/100)`)
-        }
-        
-        return factors
-      }
-
-      const detailedNotes = metrics.map((metric) => ({
-        metric: metric.name,
-        voiceAScore: comparisonData.voiceA[metric.key as keyof Scores],
-        voiceBScore: comparisonData.voiceB[metric.key as keyof Scores],
-        factors: generateFactors(
-          metric.name,
-          comparisonData.voiceB[metric.key as keyof Scores],
-          voiceBData.refinedText
-        )
-      }))
-
-      setComparisonResult({
-        voiceA: updatedVoiceAResult,
-        voiceB: voiceBData,
-        voiceAKeywords: comparisonData.voiceAKeywords || [],
-        voiceBKeywords: comparisonData.voiceBKeywords || [],
-        differences: comparisonData.differences || "",
-        detailedNotes,
-      })
-    } catch (err) {
-      console.error("Comparison error:", err)
-      setError(err instanceof Error ? err.message : "Comparison failed")
-    } finally {
-      setIsComparing(false)
+      setIsEvaluating(false)
     }
   }
 
   return (
-    <main className="mx-auto max-w-6xl p-4 md:p-6 space-y-6 bg-gray-50 min-h-screen">
-      <header className="space-y-4 md:space-y-6 text-center p-4 md:p-8">
-        {/* IntelliMedia Logo */}
-        <div className="flex justify-center">
-          <div 
-            className="h-16 md:h-20 w-48 md:w-56 bg-contain bg-center bg-no-repeat"
-            style={{
-              backgroundImage: "url('https://intellimedianetworks.com/wp-content/uploads/2021/04/im-logo.svg')"
-            }}
-            aria-label="IntelliMedia Networks"
-          />
+    <div className="container mx-auto py-8 px-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold mb-2">Video Pitch Evaluator</h1>
+          <p className="text-gray-600">
+            Upload benchmark video and record your pitch for comprehensive 6-metric evaluation
+          </p>
         </div>
-        
-        {/* Main Heading */}
-        <h1 className="text-pretty text-2xl md:text-3xl">Voice Pitch Comparison</h1>
-      </header>
 
-      {/* Box 1: Upload VoiceA (Original Pitch) */}
-      <Card className="shadow-md border-0">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-balance text-base md:text-lg font-bold text-gray-800 text-center">
-            Upload Original Pitch (VoiceA)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Tabs defaultValue="upload" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-transparent gap-2 p-0">
-              <TabsTrigger 
-                value="upload"
-                className="border-2 border-green-500 text-green-700 data-[state=active]:bg-green-50 data-[state=active]:text-green-700 hover:bg-green-50"
-              >
-                Upload from Device
-              </TabsTrigger>
-              <TabsTrigger 
-                value="cloud"
-                className="border-2 border-green-500 text-green-700 data-[state=active]:bg-green-50 data-[state=active]:text-green-700 hover:bg-green-50"
-              >
-                Cloud Library
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="upload" className="space-y-4">
-              <div className="flex flex-col items-center gap-4">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="audio/*"
-                  onChange={handleVoiceAUpload}
-                  className="hidden"
-                  id="voiceA-upload"
-                />
-                
-                {voiceAStatus === "idle" && !voiceAFile && (
-                  <Button 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full md:w-auto"
-                  >
-                    Choose Audio File
-                  </Button>
-                )}
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="cloud" className="space-y-4">
-              <div className="flex flex-col gap-3">
-                {isLoadingCloudAudios ? (
-                  <div className="text-center py-4">
-                    <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-                    <p className="text-sm text-muted-foreground mt-2">Loading cloud library...</p>
-                  </div>
-                ) : cloudAudioLoadError ? (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                    <p className="text-sm font-medium text-red-800">{cloudAudioLoadError}</p>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={fetchCloudAudios}
-                      className="mt-2"
-                    >
-                      Retry
-                    </Button>
-                  </div>
-                ) : cloudAudios.length === 0 ? (
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-md text-center">
-                    <p className="text-sm font-medium text-blue-900">No audios found in cloud library</p>
-                    <p className="text-xs text-blue-700 mt-1">Generate audios in pitch-v3 first!</p>
-                  </div>
-                ) : (
-                  <>
-                    <label className="text-sm font-semibold text-gray-800">
-                      Select an audio from cloud library:
-                    </label>
-                    <Select 
-                      value={selectedCloudAudioId} 
-                      onValueChange={handleCloudAudioSelect}
-                      disabled={voiceAStatus === "uploading" || voiceAStatus === "processing"}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Choose a cloud audio..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {cloudAudios.map((audio) => (
-                          <SelectItem key={audio.id} value={audio.id}>
-                            <div className="flex flex-col py-1">
-                              <span className="font-medium">{audio.filename}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {audio.format.toUpperCase()} • {(audio.size / 1024).toFixed(0)} KB • {new Date(audio.createdAt).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </>
-                )}
-              </div>
-            </TabsContent>
-          </Tabs>
-
-          {voiceAFile && (
-            <div className="w-full space-y-3">
-              {/* Filename row hidden as per user request */}
-
-              {/* Audio Player for uploaded file */}
-              <div className="rounded-md bg-white border border-green-200 p-3">
-                <p className="font-medium text-green-800 mb-2">Reference Audio (Voice A):</p>
-                <audio 
-                  src={URL.createObjectURL(voiceAFile)} 
-                  controls 
-                  className="w-full"
-                />
-              </div>
-
-              {voiceAStatus === "uploading" && (
-                <div className="text-center">
-                  <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-                  <p className="text-sm text-muted-foreground mt-2">Uploading...</p>
-                </div>
-              )}
-
-              {voiceAStatus === "processing" && (
-                <div className="text-center">
-                  <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-                  <p className="text-sm text-muted-foreground mt-2">Processing audio...</p>
-                </div>
-              )}
-
-              {voiceAStatus === "completed" && (
-                <div className="p-3 bg-white border border-green-200 rounded-md space-y-2">
-                  <p className="text-sm font-medium text-green-800">Original pitch uploaded and evaluated</p>
-                  {voiceAResult?.refinedText && (
-                    <div className="mt-2 p-2 bg-white border border-green-300 rounded">
-                      <p className="text-xs font-semibold text-gray-700 mb-1">Transcript:</p>
-                      <p className="text-sm text-gray-900">{voiceAResult.refinedText}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {voiceAStatus === "error" && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-sm font-medium text-red-800">Processing failed. Please try again.</p>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Box 2: Record VoiceB (Your Pitch) */}
-      <Card className="shadow-md border-0">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-balance text-base md:text-lg font-bold text-gray-800 text-center">
-            Record Your Pitch (VoiceB)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 md:p-6 space-y-4">
-          <AudioRecorderAssemblyAI onTranscript={handleSpeechTranscript} />
-          
-          {/* Evaluate Button and Mode Toggle */}
-          <div className="space-y-3">
-            <Button 
-              onClick={handleCompareVoices} 
-              disabled={!voiceAResult || !voiceBTranscript || isComparing}
-              className="w-full"
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-800">
+            <AlertCircle className="w-5 h-5" />
+            <p>{error}</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setError(null)}
+              className="ml-auto"
             >
-              {isComparing ? "Evaluating..." : "Evaluate"}
+              Dismiss
             </Button>
-
-            {/* Show mode toggle after user can evaluate */}
-            {voiceAResult && voiceBTranscript && !isComparing && (
-              <div className="flex items-center justify-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                <span className="text-xs font-medium text-gray-600">Evaluation Mode:</span>
-                <div className="inline-flex rounded-md shadow-sm" role="group">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEvaluationMode("audio")
-                      if (comparisonResult) {
-                        // Re-evaluate if results already exist
-                        setTimeout(() => handleCompareVoices(), 100)
-                      }
-                    }}
-                    className={cn(
-                      "px-3 py-1.5 text-xs font-medium rounded-l-md border transition-colors",
-                      evaluationMode === "audio"
-                        ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                    )}
-                  >
-                    A-A
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEvaluationMode("text")
-                      if (comparisonResult) {
-                        // Re-evaluate if results already exist
-                        setTimeout(() => handleCompareVoices(), 100)
-                      }
-                    }}
-                    className={cn(
-                      "px-3 py-1.5 text-xs font-medium rounded-r-md border transition-colors",
-                      evaluationMode === "text"
-                        ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                    )}
-                  >
-                    T-T
-                  </button>
-                </div>
-                <span className="text-xs text-gray-500">
-                  {evaluationMode === "audio" ? "(Audio Analysis)" : "(Text Analysis)"}
-                </span>
-              </div>
-            )}
           </div>
+        )}
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
-        </CardContent>
-      </Card>
-
-      {/* Box 3: Comparison Chart and Detailed Notes */}
-      {comparisonResult && (
-        <>
-          <Card className="shadow-md border-0">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-balance text-base md:text-lg font-bold text-gray-800 text-center">
-                Performance Comparison
+        {/* Video Upload Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {/* VideoA - Reference */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Video className="w-5 h-5" />
+                Video A (Benchmark)
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <ScoreChart
-                voiceAData={[
-                  { metric: "Usage of Keywords", score: comparisonResult.voiceA.scores.usageOfKeywords },
-                  { metric: "Pronunciation", score: comparisonResult.voiceA.scores.pronunciation },
-                  { metric: "Fluency", score: comparisonResult.voiceA.scores.fluency },
-                  { metric: "Objection Handling", score: comparisonResult.voiceA.scores.objectionHandling },
-                  { metric: "Query Resolution", score: comparisonResult.voiceA.scores.queryResolution },
-                ]}
-                voiceBData={[
-                  { metric: "Usage of Keywords", score: comparisonResult.voiceB.scores.usageOfKeywords },
-                  { metric: "Pronunciation", score: comparisonResult.voiceB.scores.pronunciation },
-                  { metric: "Fluency", score: comparisonResult.voiceB.scores.fluency },
-                  { metric: "Objection Handling", score: comparisonResult.voiceB.scores.objectionHandling },
-                  { metric: "Query Resolution", score: comparisonResult.voiceB.scores.queryResolution },
-                ]}
-              />
+              {!videoAFile ? (
+                <div className="space-y-4">
+                  <input
+                    ref={videoAInputRef}
+                    type="file"
+                    accept="video/mp4,video/webm,video/mov"
+                    onChange={handleVideoAUpload}
+                    className="hidden"
+                    id="videoA-upload"
+                  />
+                  <label htmlFor="videoA-upload">
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400 transition-colors">
+                      <Upload className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                      <p className="text-sm text-gray-600 mb-1">
+                        Click to upload reference video
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        MP4, WebM, MOV (max 50MB, 30-45s)
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                    <video
+                      src={videoAUrl || undefined}
+                      controls
+                      className="w-full h-full"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {videoAStatus === "processing" && (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                          <span className="text-sm text-blue-600">Processing...</span>
+                        </>
+                      )}
+                      {videoAStatus === "completed" && (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                          <span className="text-sm text-green-600">Ready</span>
+                        </>
+                      )}
+                      {videoAStatus === "error" && (
+                        <>
+                          <XCircle className="w-4 h-4 text-red-500" />
+                          <span className="text-sm text-red-600">Error</span>
+                        </>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleClearVideoA}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    File: {videoAFile.name} ({(videoAFile.size / 1024 / 1024).toFixed(2)}MB)
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Detailed Scoring Notes */}
-          <Card className="shadow-md border-0">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-balance text-base md:text-lg font-bold text-gray-800 text-center">
-                AI Analysis & Scoring Breakdown
+          {/* VideoB - User */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Video className="w-5 h-5" />
+                Video B (Your Pitch)
               </CardTitle>
             </CardHeader>
+            <CardContent className="space-y-4">
+              {!videoBFile ? (
+                <div className="space-y-4">
+                  {/* Recording Guidelines */}
+                  {showGuidelines && (
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+                      <h4 className="font-semibold text-sm mb-2">📹 Recording Best Practices</h4>
+                      <ul className="text-xs space-y-1">
+                        <li>✅ Face close to camera (30-40% of frame)</li>
+                        <li>✅ Good lighting (face camera, not window)</li>
+                        <li>✅ Stable camera position</li>
+                        <li>✅ Look directly at camera</li>
+                        <li>✅ Natural eye contact</li>
+                        <li>✅ Clean background</li>
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {/* Video Preview */}
+                  {isRecording && (
+                    <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4">
+                      <video
+                        id="videoPreview"
+                        autoPlay
+                        muted
+                        className="w-full h-full mirror"
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Recording Controls */}
+                  {!isRecording ? (
+                    <>
+                      <Button
+                        onClick={handleStartRecording}
+                        className="w-full"
+                        variant="default"
+                      >
+                        <Video className="w-4 h-4 mr-2" />
+                        Record Video (45s max)
+                      </Button>
+                      
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <span className="w-full border-t" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                          <span className="bg-white px-2 text-gray-500">Or</span>
+                        </div>
+                      </div>
+                      
+                      <input
+                        ref={videoBInputRef}
+                        type="file"
+                        accept="video/mp4,video/webm,video/mov"
+                        onChange={handleVideoBUpload}
+                        className="hidden"
+                        id="videoB-upload"
+                      />
+                      <label htmlFor="videoB-upload">
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          type="button"
+                          onClick={() => videoBInputRef.current?.click()}
+                        >
+                          <Upload className="w-4 h-4 mr-2" />
+                          Upload Video
+                        </Button>
+                      </label>
+                    </>
+                  ) : (
+                    <Button
+                      onClick={handleStopRecording}
+                      variant="destructive"
+                      className="w-full"
+                    >
+                      Stop Recording
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                    <video
+                      src={videoBUrl || undefined}
+                      controls
+                      className="w-full h-full"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {videoBStatus === "processing" && (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                          <span className="text-sm text-blue-600">Processing...</span>
+                        </>
+                      )}
+                      {videoBStatus === "completed" && (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                          <span className="text-sm text-green-600">Ready</span>
+                        </>
+                      )}
+                      {videoBStatus === "error" && (
+                        <>
+                          <XCircle className="w-4 h-4 text-red-500" />
+                          <span className="text-sm text-red-600">Error</span>
+                        </>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleClearVideoB}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    File: {videoBFile.name} ({(videoBFile.size / 1024 / 1024).toFixed(2)}MB)
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Evaluate Button */}
+        <div className="flex justify-center mb-8">
+          <Button
+            onClick={handleEvaluate}
+            disabled={!videoAFile || !videoBFile || isEvaluating}
+            size="lg"
+            className="min-w-[200px]"
+          >
+            {isEvaluating ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                Evaluating... (30-60s)
+              </>
+            ) : (
+              "Evaluate Videos"
+            )}
+          </Button>
+        </div>
+
+        {/* Results */}
+        {comparisonResult && (
+          <Card>
+            <CardHeader>
+              <CardTitle>📊 Evaluation Results - Video B Performance</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-6">
-              {/* Show Your Pitch Keywords Only */}
-              <div className="mb-6">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <h3 className="font-semibold text-green-900 mb-3">Your Pitch Keywords</h3>
+              {/* Chart */}
+              <ScoreChart
+                data={comparisonResult.videoB.scores}
+                referenceData={comparisonResult.videoA.scores}
+              />
+
+              {/* Metrics Breakdown */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Object.entries(comparisonResult.videoB.scores).map(([key, value]) => {
+                  const referenceScore = comparisonResult.videoA.scores[key as keyof Scores]
+                  const diff = value - referenceScore
+                  const labels: { [key: string]: string } = {
+                    usageOfKeywords: "Usage of Keywords",
+                    pronunciation: "Pronunciation",
+                    fluency: "Fluency",
+                    objectionHandling: "Objection Handling",
+                    queryResolution: "Query Resolution",
+                    eyeContact: "Eye Contact"
+                  }
+                  
+                  return (
+                    <div key={key} className="p-4 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-semibold text-sm">{labels[key]}</h4>
+                        <span className={cn(
+                          "text-xs font-medium",
+                          diff >= 0 ? "text-green-600" : "text-red-600"
+                        )}>
+                          {diff >= 0 ? "+" : ""}{diff.toFixed(0)} vs benchmark
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-2xl font-bold">{value}/100</div>
+                        <div className="flex-1 bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-blue-500 h-2 rounded-full transition-all"
+                            style={{ width: `${value}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Eye Contact Analysis */}
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h4 className="font-semibold mb-2">👁️ Eye Contact Analysis</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium mb-1">Video A (Benchmark)</p>
+                    <p className="text-sm text-gray-700">
+                      {comparisonResult.eyeContactAnalysis.videoA.feedback}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium mb-1">Video B (Your Pitch)</p>
+                    <p className="text-sm text-gray-700">
+                      {comparisonResult.eyeContactAnalysis.videoB.feedback}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Strengths & Improvements */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <h4 className="font-semibold text-green-800 mb-2">💪 Strengths</h4>
                   <ul className="space-y-1">
-                    {comparisonResult.voiceBKeywords && comparisonResult.voiceBKeywords.length > 0 ? (
-                      comparisonResult.voiceBKeywords.map((keyword, idx) => (
-                        <li key={idx} className="text-sm text-green-800">• {keyword}</li>
-                      ))
-                    ) : (
-                      <li className="text-sm text-green-600 italic">Keywords not extracted</li>
-                    )}
+                    {comparisonResult.comparison.strengths.map((strength, idx) => (
+                      <li key={idx} className="text-sm text-green-700">✓ {strength}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <h4 className="font-semibold text-amber-800 mb-2">🎯 Areas to Improve</h4>
+                  <ul className="space-y-1">
+                    {comparisonResult.comparison.improvements.map((improvement, idx) => (
+                      <li key={idx} className="text-sm text-amber-700">→ {improvement}</li>
+                    ))}
                   </ul>
                 </div>
               </div>
 
-              {/* Key Differences */}
-              {comparisonResult.differences && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-                  <h3 className="font-semibold text-amber-900 mb-2">Key Differences</h3>
-                  <p className="text-sm text-amber-800 whitespace-pre-wrap">{comparisonResult.differences}</p>
+              {/* Transcripts */}
+              <div className="space-y-4">
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-semibold mb-2">📝 Video A Transcript</h4>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                    {comparisonResult.videoA.transcript}
+                  </p>
                 </div>
-              )}
-
-              {/* Score comparison by metric */}
-              {comparisonResult.detailedNotes.map((note: any, index: number) => (
-                <div key={index} className="border-b pb-6 last:border-b-0">
-                  <h3 className="font-semibold text-lg mb-4 text-gray-900">{note.metric}</h3>
-                  
-                  {/* Combined Score and Analysis Box */}
-                  <div className="bg-green-50 p-5 rounded-lg border border-green-200">
-                    {/* Score Display */}
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-sm font-semibold text-green-900">Your Pitch</span>
-                      <span className="text-4xl font-bold text-green-700">{note.voiceBScore}</span>
-                    </div>
-                    
-                    {/* Analysis Factors */}
-                    <div className="border-t border-green-200 pt-3">
-                      <h4 className="text-xs font-semibold text-green-800 mb-2 uppercase tracking-wide">Analysis Factors:</h4>
-                      <ul className="space-y-1.5">
-                        {note.factors.map((factor: string, fIdx: number) => (
-                          <li key={fIdx} className="text-sm text-green-900/80">• {factor}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-semibold mb-2">📝 Video B Transcript</h4>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                    {comparisonResult.videoB.transcript}
+                  </p>
                 </div>
-              ))}
+              </div>
             </CardContent>
           </Card>
-        </>
-      )}
-    </main>
+        )}
+      </div>
+
+      <style jsx>{`
+        .mirror {
+          transform: scaleX(-1);
+        }
+      `}</style>
+    </div>
   )
 }
