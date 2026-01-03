@@ -1,5 +1,5 @@
 {
-  "name": "voice-to-voice",
+  "name": "pitch-v6",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -52,6 +52,9 @@
     "groq-sdk": "^0.33.0",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
+    "@mediapipe/face_mesh": "^0.4.1633559619",
+    "@mediapipe/camera_utils": "^0.3.1632432234",
+    "fluent-ffmpeg": "^2.1.2",
     "next": "14.2.16",
     "next-themes": "latest",
     "react": "^18",
@@ -69,6 +72,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.9",
+    "@types/fluent-ffmpeg": "^2.1.24",
     "@types/node": "^22",
     "@types/react": "^18",
     "@types/react-dom": "^18",
