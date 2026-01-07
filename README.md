@@ -2,6 +2,8 @@
 
 Advanced pharmaceutical sales pitch evaluation system using video analysis with 6 comprehensive metrics including eye contact detection.
 
+**Live Demo:** [https://pitch-v6.vercel.app](https://pitch-v6.vercel.app)
+
 ## Overview
 
 pitch-v6 evaluates pharmaceutical sales pitch videos using a combination of:
