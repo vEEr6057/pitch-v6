@@ -297,11 +297,10 @@ export default function Page() {
         {/* Video Upload Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* VideoA - Reference */}
-          <Card>
+          <Card className="shadow-md border-0">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Video className="w-5 h-5" />
-                Video A (Benchmark)
+              <CardTitle className="text-balance text-base md:text-lg font-bold text-gray-800 text-center">
+                Upload Original Pitch (VideoA)
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -315,17 +314,14 @@ export default function Page() {
                     className="hidden"
                     id="videoA-upload"
                   />
-                  <label htmlFor="videoA-upload">
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400 transition-colors">
-                      <Upload className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                      <p className="text-sm text-gray-600 mb-1">
-                        Click to upload reference video
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        MP4, WebM, MOV (max 50MB, 30-45s)
-                      </p>
-                    </div>
-                  </label>
+                  <div className="flex flex-col items-center gap-4">
+                    <Button
+                      onClick={() => videoAInputRef.current?.click()}
+                      className="w-full md:w-auto bg-black hover:bg-gray-800 text-white"
+                    >
+                      Choose Video File
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -374,11 +370,10 @@ export default function Page() {
           </Card>
 
           {/* VideoB - User */}
-          <Card>
+          <Card className="shadow-md border-0">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Video className="w-5 h-5" />
-                Video B (Your Pitch)
+              <CardTitle className="text-balance text-base md:text-lg font-bold text-gray-800 text-center">
+                Record Your Pitch (VideoB)
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -416,41 +411,11 @@ export default function Page() {
                     <>
                       <Button
                         onClick={handleStartRecording}
-                        className="w-full"
-                        variant="default"
+                        variant="outline"
+                        className="w-full border-2 border-orange-500 text-orange-700 hover:bg-orange-50 hover:text-orange-700"
                       >
-                        <Video className="w-4 h-4 mr-2" />
-                        Record Video (45s max)
+                        Start Recording
                       </Button>
-                      
-                      <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                          <span className="w-full border-t" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                          <span className="bg-white px-2 text-gray-500">Or</span>
-                        </div>
-                      </div>
-                      
-                      <input
-                        ref={videoBInputRef}
-                        type="file"
-                        accept="video/mp4,video/webm,video/mov"
-                        onChange={handleVideoBUpload}
-                        className="hidden"
-                        id="videoB-upload"
-                      />
-                      <label htmlFor="videoB-upload">
-                        <Button
-                          variant="outline"
-                          className="w-full"
-                          type="button"
-                          onClick={() => videoBInputRef.current?.click()}
-                        >
-                          <Upload className="w-4 h-4 mr-2" />
-                          Upload Video
-                        </Button>
-                      </label>
                     </>
                   ) : (
                     <Button
@@ -514,17 +479,9 @@ export default function Page() {
           <Button
             onClick={handleEvaluate}
             disabled={!videoAFile || !videoBFile || isEvaluating}
-            size="lg"
-            className="min-w-[200px]"
+            className="w-full disabled:bg-gray-400 disabled:text-white disabled:opacity-100"
           >
-            {isEvaluating ? (
-              <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Evaluating... (30-60s)
-              </>
-            ) : (
-              "Evaluate Videos"
-            )}
+            {isEvaluating ? "Evaluating..." : "Evaluate"}
           </Button>
         </div>
 
