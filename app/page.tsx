@@ -265,10 +265,21 @@ export default function Page() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2">Video Pitch Evaluator</h1>
-          <p className="text-gray-600">
-            Upload benchmark video and record your pitch for comprehensive 6-metric evaluation
-          </p>
+          {/* intelliMEDIA Logo */}
+          <div className="flex justify-center mb-4">
+            <svg width="200" height="60" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
+              <text x="10" y="35" fontFamily="Arial, sans-serif" fontSize="28" fontWeight="600" fill="#4a5568">
+                intelli
+                <tspan fill="#3b82f6">ME</tspan>
+                <tspan>▶</tspan>
+                <tspan>IA</tspan>
+              </text>
+              <text x="25" y="52" fontFamily="Arial, sans-serif" fontSize="10" fill="#9ca3af" letterSpacing="2">
+                networks
+              </text>
+            </svg>
+          </div>
+          <h1 className="text-4xl font-bold mb-2 text-orange-500">Voice Pitch Comparison</h1>
         </div>
 
         {/* Error Display */}
