@@ -265,19 +265,15 @@ export default function Page() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          {/* intelliMEDIA Logo */}
+          {/* IntelliMedia Logo */}
           <div className="flex justify-center mb-4">
-            <svg width="200" height="60" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
-              <text x="10" y="35" fontFamily="Arial, sans-serif" fontSize="28" fontWeight="600" fill="#4a5568">
-                intelli
-                <tspan fill="#3b82f6">ME</tspan>
-                <tspan>▶</tspan>
-                <tspan>IA</tspan>
-              </text>
-              <text x="25" y="52" fontFamily="Arial, sans-serif" fontSize="10" fill="#9ca3af" letterSpacing="2">
-                networks
-              </text>
-            </svg>
+            <div 
+              className="h-16 md:h-20 w-48 md:w-56 bg-contain bg-center bg-no-repeat"
+              style={{
+                backgroundImage: "url('https://intellimedianetworks.com/wp-content/uploads/2021/04/im-logo.svg')"
+              }}
+              aria-label="IntelliMedia Networks"
+            />
           </div>
           <h1 className="text-4xl font-bold mb-2 text-orange-500">Voice Pitch Comparison</h1>
         </div>
