@@ -305,20 +305,22 @@ export default function Page() {
         body: formData
       })
 
+      console.log('Response status:', response.status)
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()))
+
       if (!response.ok) {
+        // Try to get response body for debugging
+        const responseText = await response.text()
+        console.log('Response body:', responseText)
+        
         // Check if response is JSON
         const contentType = response.headers.get('content-type')
         if (contentType && contentType.includes('application/json')) {
-          const errorData = await response.json()
+          const errorData = JSON.parse(responseText)
           throw new Error(errorData.error || 'Failed to evaluate videos')
         } else {
-          // Handle non-JSON error responses (like Forbidden)
-          const errorText = await response.text()
-          if (errorText.includes('Forbidden') || response.status === 403) {
-            throw new Error('API keys not configured. Please set GROQ_API_KEY and ASSEMBLYAI_API_KEY in Vercel environment variables.')
-          } else {
-            throw new Error(`Server error: ${response.status} ${response.statusText}`)
-          }
+          // Handle non-JSON error responses
+          throw new Error(`Server error (${response.status}): ${responseText.substring(0, 200)}`)
         }
       }
 
