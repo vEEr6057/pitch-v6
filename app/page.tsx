@@ -151,8 +151,27 @@ export default function Page() {
         videoPreview.play()
       }
       
+      // Find supported mimeType
+      let mimeType = 'video/webm'
+      const possibleTypes = [
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm;codecs=h264,opus',
+        'video/webm',
+        'video/mp4'
+      ]
+      
+      for (const type of possibleTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          mimeType = type
+          break
+        }
+      }
+      
+      console.log('Using mimeType:', mimeType)
+      
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm'
+        mimeType: mimeType
       })
       
       const chunks: Blob[] = []
@@ -164,8 +183,9 @@ export default function Page() {
       }
       
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/webm' })
-        const file = new File([blob], `pitch-recording-${Date.now()}.webm`, { type: 'video/webm' })
+        const blob = new Blob(chunks, { type: mimeType })
+        const extension = mimeType.includes('webm') ? 'webm' : 'mp4'
+        const file = new File([blob], `pitch-recording-${Date.now()}.${extension}`, { type: mimeType })
         
         setVideoBFile(file)
         setVideoBUrl(URL.createObjectURL(blob))
@@ -194,7 +214,88 @@ export default function Page() {
       
     } catch (err) {
       console.error('Recording error:', err)
-      setError('Failed to access camera/microphone. Please check permissions.')
+      
+      // Provide more specific error messages
+      if (err instanceof Error) {
+        if (err.name === 'NotAllowedError') {
+          setError('Permission denied. Please allow camera and microphone access.')
+        } else if (err.name === 'NotFoundError') {
+          setError('No camera or microphone found. Please connect a device.')
+        } else if (err.name === 'NotReadableError') {
+          setError('Camera/microphone is already in use. Please close other apps and try again.')
+        } else if (err.name === 'OverconstrainedError') {
+          setError('Camera settings not supported. Trying with default settings...')
+          // Retry with simpler constraints
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+              video: true,
+              audio: true
+            })
+            videoStreamRef.current = stream
+            const videoPreview = document.getElementById('videoPreview') as HTMLVideoElement
+            if (videoPreview) {
+              videoPreview.srcObject = stream
+              videoPreview.play()
+            }
+            
+            let mimeType = 'video/webm'
+            const possibleTypes = [
+              'video/webm;codecs=vp9,opus',
+              'video/webm;codecs=vp8,opus',
+              'video/webm',
+              'video/mp4'
+            ]
+            
+            for (const type of possibleTypes) {
+              if (MediaRecorder.isTypeSupported(type)) {
+                mimeType = type
+                break
+              }
+            }
+            
+            const mediaRecorder = new MediaRecorder(stream, { mimeType })
+            const chunks: Blob[] = []
+            
+            mediaRecorder.ondataavailable = (e) => {
+              if (e.data.size > 0) chunks.push(e.data)
+            }
+            
+            mediaRecorder.onstop = () => {
+              const blob = new Blob(chunks, { type: mimeType })
+              const extension = mimeType.includes('webm') ? 'webm' : 'mp4'
+              const file = new File([blob], `pitch-recording-${Date.now()}.${extension}`, { type: mimeType })
+              
+              setVideoBFile(file)
+              setVideoBUrl(URL.createObjectURL(blob))
+              setVideoBStatus("completed")
+              
+              stream.getTracks().forEach(track => track.stop())
+              videoStreamRef.current = null
+              
+              if (videoPreview) videoPreview.srcObject = null
+            }
+            
+            mediaRecorderRef.current = mediaRecorder
+            mediaRecorder.start()
+            setIsRecording(true)
+            setError(null)
+            
+            setTimeout(() => {
+              if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+                handleStopRecording()
+              }
+            }, 45000)
+          } catch (retryErr) {
+            console.error('Retry failed:', retryErr)
+            setError('Failed to access camera/microphone. Please check permissions.')
+            setShowGuidelines(false)
+          }
+        } else {
+          setError(`Failed to access camera/microphone: ${err.message}`)
+        }
+      } else {
+        setError('Failed to access camera/microphone. Please check permissions.')
+      }
       setShowGuidelines(false)
     }
   }
