@@ -245,6 +245,17 @@ Provide specific, actionable insights. Respond ONLY with valid JSON:
 
 export async function POST(request: NextRequest) {
   try {
+    // Debug: Check if API keys are available
+    console.log("GROQ_API_KEY exists:", !!process.env.GROQ_API_KEY)
+    console.log("ASSEMBLYAI_API_KEY exists:", !!process.env.ASSEMBLYAI_API_KEY)
+    
+    if (!process.env.GROQ_API_KEY || !process.env.ASSEMBLYAI_API_KEY) {
+      return NextResponse.json(
+        { error: "API keys not configured on server" },
+        { status: 500 }
+      )
+    }
+    
     const formData = await request.formData()
     const videoAFile = formData.get("videoA") as File
     const videoBFile = formData.get("videoB") as File
