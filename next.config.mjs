@@ -14,6 +14,10 @@ const nextConfig = {
       bodySizeLimit: '50mb',
     },
   },
+  // Increase API route body size limit
+  serverRuntimeConfig: {
+    bodySizeLimit: '50mb',
+  },
 }
 
 export default nextConfig

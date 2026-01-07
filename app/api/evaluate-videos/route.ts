@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { AssemblyAI } from "assemblyai"
 import Groq from "groq-sdk"
 
+// Configure route to accept larger bodies
+export const runtime = 'nodejs'
+export const maxDuration = 300
+
 const assemblyai = new AssemblyAI({ apiKey: process.env.ASSEMBLYAI_API_KEY || "" })
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || "" })
 
