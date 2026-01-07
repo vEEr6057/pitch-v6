@@ -133,12 +133,17 @@ export default function Page() {
     setError(null)
     
     try {
+      // Stop any existing streams first
+      if (videoStreamRef.current) {
+        videoStreamRef.current.getTracks().forEach(track => track.stop())
+        videoStreamRef.current = null
+        // Wait a bit for resources to be released
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+      
+      // Use simpler constraints to avoid issues
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 854 },
-          height: { ideal: 480 },
-          facingMode: "user"
-        },
+        video: true,
         audio: true
       })
       
@@ -148,15 +153,17 @@ export default function Page() {
       const videoPreview = document.getElementById('videoPreview') as HTMLVideoElement
       if (videoPreview) {
         videoPreview.srcObject = stream
-        videoPreview.play()
+        await videoPreview.play()
       }
+      
+      // Wait a bit for stream to stabilize
+      await new Promise(resolve => setTimeout(resolve, 200))
       
       // Find supported mimeType
       let mimeType = 'video/webm'
       const possibleTypes = [
         'video/webm;codecs=vp9,opus',
         'video/webm;codecs=vp8,opus',
-        'video/webm;codecs=h264,opus',
         'video/webm',
         'video/mp4'
       ]
@@ -215,86 +222,25 @@ export default function Page() {
     } catch (err) {
       console.error('Recording error:', err)
       
+      // Clean up on error
+      if (videoStreamRef.current) {
+        videoStreamRef.current.getTracks().forEach(track => track.stop())
+        videoStreamRef.current = null
+      }
+      
       // Provide more specific error messages
       if (err instanceof Error) {
         if (err.name === 'NotAllowedError') {
-          setError('Permission denied. Please allow camera and microphone access.')
+          setError('Permission denied. Please allow camera and microphone access in your browser settings.')
         } else if (err.name === 'NotFoundError') {
           setError('No camera or microphone found. Please connect a device.')
         } else if (err.name === 'NotReadableError') {
-          setError('Camera/microphone is already in use. Please close other apps and try again.')
-        } else if (err.name === 'OverconstrainedError') {
-          setError('Camera settings not supported. Trying with default settings...')
-          // Retry with simpler constraints
-          try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-              video: true,
-              audio: true
-            })
-            videoStreamRef.current = stream
-            const videoPreview = document.getElementById('videoPreview') as HTMLVideoElement
-            if (videoPreview) {
-              videoPreview.srcObject = stream
-              videoPreview.play()
-            }
-            
-            let mimeType = 'video/webm'
-            const possibleTypes = [
-              'video/webm;codecs=vp9,opus',
-              'video/webm;codecs=vp8,opus',
-              'video/webm',
-              'video/mp4'
-            ]
-            
-            for (const type of possibleTypes) {
-              if (MediaRecorder.isTypeSupported(type)) {
-                mimeType = type
-                break
-              }
-            }
-            
-            const mediaRecorder = new MediaRecorder(stream, { mimeType })
-            const chunks: Blob[] = []
-            
-            mediaRecorder.ondataavailable = (e) => {
-              if (e.data.size > 0) chunks.push(e.data)
-            }
-            
-            mediaRecorder.onstop = () => {
-              const blob = new Blob(chunks, { type: mimeType })
-              const extension = mimeType.includes('webm') ? 'webm' : 'mp4'
-              const file = new File([blob], `pitch-recording-${Date.now()}.${extension}`, { type: mimeType })
-              
-              setVideoBFile(file)
-              setVideoBUrl(URL.createObjectURL(blob))
-              setVideoBStatus("completed")
-              
-              stream.getTracks().forEach(track => track.stop())
-              videoStreamRef.current = null
-              
-              if (videoPreview) videoPreview.srcObject = null
-            }
-            
-            mediaRecorderRef.current = mediaRecorder
-            mediaRecorder.start()
-            setIsRecording(true)
-            setError(null)
-            
-            setTimeout(() => {
-              if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                handleStopRecording()
-              }
-            }, 45000)
-          } catch (retryErr) {
-            console.error('Retry failed:', retryErr)
-            setError('Failed to access camera/microphone. Please check permissions.')
-            setShowGuidelines(false)
-          }
+          setError('Camera/microphone is busy. Please refresh the page and try again.')
         } else {
-          setError(`Failed to access camera/microphone: ${err.message}`)
+          setError(`Recording failed: ${err.message}. Please refresh the page and try again.`)
         }
       } else {
-        setError('Failed to access camera/microphone. Please check permissions.')
+        setError('Failed to access camera/microphone. Please refresh the page and try again.')
       }
       setShowGuidelines(false)
     }
@@ -312,17 +258,30 @@ export default function Page() {
   // Clear VideoB
   const handleClearVideoB = () => {
     if (videoBUrl) URL.revokeObjectURL(videoBUrl)
+    
+    // Stop recording if active
+    if (isRecording) {
+      handleStopRecording()
+    }
+    
+    // Clean up stream
+    if (videoStreamRef.current) {
+      videoStreamRef.current.getTracks().forEach(track => track.stop())
+      videoStreamRef.current = null
+    }
+    
+    // Clear video preview
+    const videoPreview = document.getElementById('videoPreview') as HTMLVideoElement
+    if (videoPreview) {
+      videoPreview.srcObject = null
+    }
+    
     setVideoBFile(null)
     setVideoBUrl(null)
     setVideoBStatus("idle")
     setComparisonResult(null)
     if (videoBInputRef.current) {
       videoBInputRef.current.value = ""
-    }
-    
-    // Stop recording if active
-    if (isRecording) {
-      handleStopRecording()
     }
   }
 
