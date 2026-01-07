@@ -261,15 +261,30 @@ export async function POST(request: NextRequest) {
     }
     
     const formData = await request.formData()
-    const videoAFile = formData.get("videoA") as File
-    const videoBFile = formData.get("videoB") as File
+    const videoAUrl = formData.get("videoAUrl") as string
+    const videoBUrl = formData.get("videoBUrl") as string
 
-    if (!videoAFile || !videoBFile) {
+    if (!videoAUrl || !videoBUrl) {
       return NextResponse.json(
-        { error: "Both videoA and videoB are required" },
+        { error: "Both videoAUrl and videoBUrl are required" },
         { status: 400 }
       )
     }
+
+    // Fetch videos from blob storage
+    console.log("Fetching videos from blob storage...")
+    const [videoAResponse, videoBResponse] = await Promise.all([
+      fetch(videoAUrl),
+      fetch(videoBUrl)
+    ])
+    
+    const [videoABuffer, videoBBuffer] = await Promise.all([
+      videoAResponse.arrayBuffer(),
+      videoBResponse.arrayBuffer()
+    ])
+    
+    const videoAFile = new File([videoABuffer], 'videoA.webm', { type: 'video/webm' })
+    const videoBFile = new File([videoBBuffer], 'videoB.webm', { type: 'video/webm' })
 
     // Process Video A
     console.log("Processing Video A...")

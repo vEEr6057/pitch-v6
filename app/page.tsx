@@ -296,9 +296,40 @@ export default function Page() {
     setError(null)
 
     try {
+      // Step 1: Upload both videos to blob storage
+      console.log('Uploading videos to blob storage...')
+      
+      const uploadVideoA = async () => {
+        const formData = new FormData()
+        formData.append('file', videoAFile)
+        const response = await fetch('/api/upload-video', {
+          method: 'POST',
+          body: formData
+        })
+        if (!response.ok) throw new Error('Failed to upload Video A')
+        const data = await response.json()
+        return data.url
+      }
+      
+      const uploadVideoB = async () => {
+        const formData = new FormData()
+        formData.append('file', videoBFile)
+        const response = await fetch('/api/upload-video', {
+          method: 'POST',
+          body: formData
+        })
+        if (!response.ok) throw new Error('Failed to upload Video B')
+        const data = await response.json()
+        return data.url
+      }
+      
+      const [videoAUrl, videoBUrl] = await Promise.all([uploadVideoA(), uploadVideoB()])
+      console.log('Videos uploaded successfully')
+
+      // Step 2: Send blob URLs for evaluation
       const formData = new FormData()
-      formData.append('videoA', videoAFile)
-      formData.append('videoB', videoBFile)
+      formData.append('videoAUrl', videoAUrl)
+      formData.append('videoBUrl', videoBUrl)
 
       const response = await fetch('/api/evaluate-videos', {
         method: 'POST',
@@ -309,17 +340,14 @@ export default function Page() {
       console.log('Response headers:', Object.fromEntries(response.headers.entries()))
 
       if (!response.ok) {
-        // Try to get response body for debugging
         const responseText = await response.text()
         console.log('Response body:', responseText)
         
-        // Check if response is JSON
         const contentType = response.headers.get('content-type')
         if (contentType && contentType.includes('application/json')) {
           const errorData = JSON.parse(responseText)
           throw new Error(errorData.error || 'Failed to evaluate videos')
         } else {
-          // Handle non-JSON error responses
           throw new Error(`Server error (${response.status}): ${responseText.substring(0, 200)}`)
         }
       }
