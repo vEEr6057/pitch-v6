@@ -131,3 +131,15 @@
   font-size: xx-large;
   color: darkorange;
 }
+
+/* Mirror video preview during recording */
+.mirror {
+  transform: scaleX(-1);
+  -webkit-transform: scaleX(-1);
+}
+
+/* Mirror video preview during recording */
+.mirror {
+  transform: scaleX(-1);
+  -webkit-transform: scaleX(-1);
+}

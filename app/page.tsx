@@ -306,8 +306,20 @@ export default function Page() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to evaluate videos')
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to evaluate videos')
+        } else {
+          // Handle non-JSON error responses (like Forbidden)
+          const errorText = await response.text()
+          if (errorText.includes('Forbidden') || response.status === 403) {
+            throw new Error('API keys not configured. Please set GROQ_API_KEY and ASSEMBLYAI_API_KEY in Vercel environment variables.')
+          } else {
+            throw new Error(`Server error: ${response.status} ${response.statusText}`)
+          }
+        }
       }
 
       const result = await response.json()
