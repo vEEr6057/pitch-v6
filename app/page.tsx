@@ -275,16 +275,16 @@ export default function Page() {
       console.log('Using hardcoded Video A:', VIDEO_A_URL)
       
       console.log('Uploading Video B:', videoBFile.name, videoBFile.size, 'bytes')
-      const videoBUrl = await upload(videoBFile.name, videoBFile, {
+      const videoBBlob = await upload(videoBFile.name, videoBFile, {
         access: 'public',
         handleUploadUrl: '/api/upload-video',
       })
-      console.log('Video B uploaded:', videoBUrl)
+      console.log('Video B uploaded:', videoBBlob.url)
 
       // Step 2: Send blob URLs for evaluation
       const formData = new FormData()
       formData.append('videoAUrl', VIDEO_A_URL)
-      formData.append('videoBUrl', videoBUrl)
+      formData.append('videoBUrl', videoBBlob.url)
 
       const response = await fetch('/api/evaluate-videos', {
         method: 'POST',
