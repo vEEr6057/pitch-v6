@@ -8,6 +8,9 @@ import { cn } from "@/lib/utils"
 import ScoreChart from "@/components/score-chart"
 import { Upload, Video, Loader2, CheckCircle2, XCircle, AlertCircle } from "lucide-react"
 
+// Hardcoded reference video (Video A) - always use this for comparison
+const VIDEO_A_URL = "https://n2ap5g7ig7wnxcyo.public.blob.vercel-storage.com/Untitled%20Video.mp4"
+
 // Define interfaces for video evaluation
 interface Scores {
   usageOfKeywords: number
@@ -31,6 +34,14 @@ interface VideoResult {
 interface ComparisonResult {
   videoA: VideoResult
   videoB: VideoResult
+  voiceBKeywords: string[]
+  differences: string
+  detailedNotes: {
+    metric: string
+    voiceAScore: number
+    voiceBScore: number
+    factors: string[]
+  }[]
   comparison: {
     overallDifference: number
     strengths: string[]
@@ -43,12 +54,6 @@ interface ComparisonResult {
 }
 
 export default function Page() {
-  // VideoA (Reference) states
-  const [videoAFile, setVideoAFile] = useState<File | null>(null)
-  const [videoAUrl, setVideoAUrl] = useState<string | null>(null)
-  const [videoAStatus, setVideoAStatus] = useState<"idle" | "processing" | "completed" | "error">("idle")
-  const videoAInputRef = useRef<HTMLInputElement>(null)
-  
   // VideoB (User) states
   const [videoBFile, setVideoBFile] = useState<File | null>(null)
   const [videoBUrl, setVideoBUrl] = useState<string | null>(null)
@@ -65,44 +70,6 @@ export default function Page() {
   
   // Recording guidelines
   const [showGuidelines, setShowGuidelines] = useState(false)
-
-  // Handle VideoA upload
-  const handleVideoAUpload = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    // Validate file
-    if (!file.type.startsWith('video/')) {
-      setError("Please upload a valid video file")
-      return
-    }
-
-    if (file.size > 50 * 1024 * 1024) { // 50MB limit
-      setError("Video file is too large (max 50MB)")
-      return
-    }
-
-    setVideoAFile(file)
-    setVideoAUrl(URL.createObjectURL(file))
-    setVideoAStatus("processing")
-    setError(null)
-    setComparisonResult(null)
-
-    // Status will be updated to "completed" when user clicks evaluate
-    setTimeout(() => setVideoAStatus("completed"), 500)
-  }
-
-  // Clear VideoA
-  const handleClearVideoA = () => {
-    if (videoAUrl) URL.revokeObjectURL(videoAUrl)
-    setVideoAFile(null)
-    setVideoAUrl(null)
-    setVideoAStatus("idle")
-    setComparisonResult(null)
-    if (videoAInputRef.current) {
-      videoAInputRef.current.value = ""
-    }
-  }
 
   // Handle VideoB upload
   const handleVideoBUpload = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -293,54 +260,30 @@ export default function Page() {
 
   // Evaluate both videos
   const handleEvaluate = async () => {
-    if (!videoAFile || !videoBFile) {
-      setError("Please upload both videos")
+    if (!videoBFile) {
+      setError("Please record or upload Video B")
       return
     }
 
     setIsEvaluating(true)
     setError(null)
+    setComparisonResult(null)
 
     try {
-      // Step 1: Upload both videos to blob storage
-      console.log('Uploading videos to blob storage...')
+      // Step 1: Upload only Video B (Video A is hardcoded)
+      console.log('Uploading Video B to blob storage...')
+      console.log('Using hardcoded Video A:', VIDEO_A_URL)
       
-      const uploadVideoA = async () => {
-        console.log('Uploading Video A:', videoAFile.name, videoAFile.size, 'bytes')
-        try {
-          const blob = await upload(videoAFile.name, videoAFile, {
-            access: 'public',
-            handleUploadUrl: '/api/upload-video',
-          })
-          console.log('Video A uploaded:', blob.url)
-          return blob.url
-        } catch (error) {
-          console.error('Video A upload error:', error)
-          throw new Error(`Failed to upload Video A: ${error instanceof Error ? error.message : 'Unknown error'}`)
-        }
-      }
-      
-      const uploadVideoB = async () => {
-        console.log('Uploading Video B:', videoBFile.name, videoBFile.size, 'bytes')
-        try {
-          const blob = await upload(videoBFile.name, videoBFile, {
-            access: 'public',
-            handleUploadUrl: '/api/upload-video',
-          })
-          console.log('Video B uploaded:', blob.url)
-          return blob.url
-        } catch (error) {
-          console.error('Video B upload error:', error)
-          throw new Error(`Failed to upload Video B: ${error instanceof Error ? error.message : 'Unknown error'}`)
-        }
-      }
-      
-      const [videoAUrl, videoBUrl] = await Promise.all([uploadVideoA(), uploadVideoB()])
-      console.log('Videos uploaded successfully')
+      console.log('Uploading Video B:', videoBFile.name, videoBFile.size, 'bytes')
+      const videoBUrl = await upload(videoBFile.name, videoBFile, {
+        access: 'public',
+        handleUploadUrl: '/api/upload-video',
+      })
+      console.log('Video B uploaded:', videoBUrl)
 
       // Step 2: Send blob URLs for evaluation
       const formData = new FormData()
-      formData.append('videoAUrl', videoAUrl)
+      formData.append('videoAUrl', VIDEO_A_URL)
       formData.append('videoBUrl', videoBUrl)
 
       const response = await fetch('/api/evaluate-videos', {
@@ -409,80 +352,7 @@ export default function Page() {
         )}
 
         {/* Video Upload Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {/* VideoA - Reference */}
-          <Card className="shadow-md border-0">
-            <CardHeader>
-              <CardTitle className="text-balance text-base md:text-lg font-bold text-gray-800 text-center">
-                Upload Original Pitch (VideoA)
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {!videoAFile ? (
-                <div className="space-y-4">
-                  <input
-                    ref={videoAInputRef}
-                    type="file"
-                    accept="video/mp4,video/webm,video/mov"
-                    onChange={handleVideoAUpload}
-                    className="hidden"
-                    id="videoA-upload"
-                  />
-                  <div className="flex flex-col items-center gap-4">
-                    <Button
-                      onClick={() => videoAInputRef.current?.click()}
-                      className="w-full md:w-auto bg-black hover:bg-gray-800 text-white"
-                    >
-                      Choose Video File
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                    <video
-                      src={videoAUrl || undefined}
-                      controls
-                      className="w-full h-full"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {videoAStatus === "processing" && (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                          <span className="text-sm text-blue-600">Processing...</span>
-                        </>
-                      )}
-                      {videoAStatus === "completed" && (
-                        <>
-                          <CheckCircle2 className="w-4 h-4 text-green-500" />
-                          <span className="text-sm text-green-600">Ready</span>
-                        </>
-                      )}
-                      {videoAStatus === "error" && (
-                        <>
-                          <XCircle className="w-4 h-4 text-red-500" />
-                          <span className="text-sm text-red-600">Error</span>
-                        </>
-                      )}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleClearVideoA}
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    File: {videoAFile.name} ({(videoAFile.size / 1024 / 1024).toFixed(2)}MB)
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
+        <div className="grid grid-cols-1 gap-6 mb-8">
           {/* VideoB - User */}
           <Card className="shadow-md border-0">
             <CardHeader>
@@ -516,7 +386,7 @@ export default function Page() {
                         autoPlay
                         playsInline
                         muted
-                        className="w-full h-full mirror object-cover"
+                        className="w-full h-full object-cover"
                       />
                     </div>
                   )}
@@ -602,112 +472,78 @@ export default function Page() {
 
         {/* Results */}
         {comparisonResult && (
-          <Card>
-            <CardHeader>
-              <CardTitle>📊 Evaluation Results - Video B Performance</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Chart */}
-              <ScoreChart
-                data={comparisonResult.videoB.scores}
-                referenceData={comparisonResult.videoA.scores}
-              />
+          <>
+            <Card className="shadow-md border-0">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-balance text-base md:text-lg font-bold text-gray-800 text-center">
+                  Performance Comparison
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <ScoreChart data={comparisonResult.videoB.scores} />
+              </CardContent>
+            </Card>
 
-              {/* Metrics Breakdown */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.entries(comparisonResult.videoB.scores).map(([key, value]) => {
-                  const referenceScore = comparisonResult.videoA.scores[key as keyof Scores]
-                  const diff = value - referenceScore
-                  const labels: { [key: string]: string } = {
-                    usageOfKeywords: "Usage of Keywords",
-                    pronunciation: "Pronunciation",
-                    fluency: "Fluency",
-                    objectionHandling: "Objection Handling",
-                    queryResolution: "Query Resolution",
-                    eyeContact: "Eye Contact"
-                  }
-                  
-                  return (
-                    <div key={key} className="p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-semibold text-sm">{labels[key]}</h4>
-                        <span className={cn(
-                          "text-xs font-medium",
-                          diff >= 0 ? "text-green-600" : "text-red-600"
-                        )}>
-                          {diff >= 0 ? "+" : ""}{diff.toFixed(0)} vs benchmark
-                        </span>
+            {/* Detailed Scoring Notes */}
+            <Card className="shadow-md border-0">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-balance text-base md:text-lg font-bold text-gray-800 text-center">
+                  AI Analysis & Scoring Breakdown
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Show Your Pitch Keywords Only */}
+                <div className="mb-6">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h3 className="font-semibold text-green-900 mb-3">Your Pitch Keywords</h3>
+                    <ul className="space-y-1">
+                      {comparisonResult.voiceBKeywords && comparisonResult.voiceBKeywords.length > 0 ? (
+                        comparisonResult.voiceBKeywords.map((keyword, idx) => (
+                          <li key={idx} className="text-sm text-green-800">• {keyword}</li>
+                        ))
+                      ) : (
+                        <li className="text-sm text-green-600 italic">Keywords not extracted</li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Key Differences */}
+                {comparisonResult.differences && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+                    <h3 className="font-semibold text-amber-900 mb-2">Key Differences</h3>
+                    <p className="text-sm text-amber-800 whitespace-pre-wrap">{comparisonResult.differences}</p>
+                  </div>
+                )}
+
+                {/* Score comparison by metric */}
+                {comparisonResult.detailedNotes.map((note, index) => (
+                  <div key={index} className="border-b pb-6 last:border-b-0">
+                    <h3 className="font-semibold text-lg mb-4 text-gray-900">{note.metric}</h3>
+                    
+                    {/* Combined Score and Analysis Box */}
+                    <div className="bg-green-50 p-5 rounded-lg border border-green-200">
+                      {/* Score Display */}
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-sm font-semibold text-green-900">Your Pitch</span>
+                        <span className="text-4xl font-bold text-green-700">{note.voiceBScore}</span>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-2xl font-bold">{value}/100</div>
-                        <div className="flex-1 bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-blue-500 h-2 rounded-full transition-all"
-                            style={{ width: `${value}%` }}
-                          />
-                        </div>
+                      
+                      {/* Analysis Factors */}
+                      <div className="border-t border-green-200 pt-3">
+                        <h4 className="text-xs font-semibold text-green-800 mb-2 uppercase tracking-wide">Analysis Factors:</h4>
+                        <ul className="space-y-1.5">
+                          {note.factors.map((factor, fIdx) => (
+                            <li key={fIdx} className="text-sm text-green-900/80">• {factor}</li>
+                          ))}
+                        </ul>
                       </div>
                     </div>
-                  )
-                })}
-              </div>
-
-              {/* Eye Contact Analysis */}
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <h4 className="font-semibold mb-2">👁️ Eye Contact Analysis</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium mb-1">Video A (Benchmark)</p>
-                    <p className="text-sm text-gray-700">
-                      {comparisonResult.eyeContactAnalysis.videoA.feedback}
-                    </p>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium mb-1">Video B (Your Pitch)</p>
-                    <p className="text-sm text-gray-700">
-                      {comparisonResult.eyeContactAnalysis.videoB.feedback}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Strengths & Improvements */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <h4 className="font-semibold text-green-800 mb-2">💪 Strengths</h4>
-                  <ul className="space-y-1">
-                    {comparisonResult.comparison.strengths.map((strength, idx) => (
-                      <li key={idx} className="text-sm text-green-700">✓ {strength}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <h4 className="font-semibold text-amber-800 mb-2">🎯 Areas to Improve</h4>
-                  <ul className="space-y-1">
-                    {comparisonResult.comparison.improvements.map((improvement, idx) => (
-                      <li key={idx} className="text-sm text-amber-700">→ {improvement}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-
-              {/* Transcripts */}
-              <div className="space-y-4">
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-semibold mb-2">📝 Video A Transcript</h4>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                    {comparisonResult.videoA.transcript}
-                  </p>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-semibold mb-2">📝 Video B Transcript</h4>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                    {comparisonResult.videoB.transcript}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                ))}
+              </CardContent>
+            </Card>
+          </>
         )}
       </div>
 

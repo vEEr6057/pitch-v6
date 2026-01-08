@@ -31,6 +31,14 @@ interface VideoResult {
 interface ComparisonResult {
   videoA: VideoResult
   videoB: VideoResult
+  voiceBKeywords: string[]
+  differences: string
+  detailedNotes: {
+    metric: string
+    voiceAScore: number
+    voiceBScore: number
+    factors: string[]
+  }[]
   comparison: {
     overallDifference: number
     strengths: string[]
@@ -178,11 +186,31 @@ Respond ONLY with a valid JSON object in this exact format (no markdown, no extr
   }
 }
 
+// Helper function to extract keywords from transcript
+function extractKeywords(transcript: string): string[] {
+  const stopWords = new Set(['the', 'and', 'for', 'you', 'your', 'with', 'that', 'this', 'from', 'have', 'are', 'was', 'were', 'will', 'would', 'could', 'should'])
+  const words = transcript.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length >= 4 && !stopWords.has(w))
+  
+  const freq = new Map<string, number>()
+  for (const w of words) {
+    freq.set(w, (freq.get(w) || 0) + 1)
+  }
+  
+  return [...freq.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([w]) => w)
+}
+
 // Helper function to compare results
 async function compareResults(videoA: VideoResult, videoB: VideoResult): Promise<{ 
   overallDifference: number
   strengths: string[]
   improvements: string[]
+  differences: string
 }> {
   try {
     const prompt = `Compare these two pharmaceutical sales pitch evaluations and provide insights:
@@ -208,7 +236,8 @@ Transcript: ${videoB.transcript.slice(0, 300)}...
 Provide specific, actionable insights. Respond ONLY with valid JSON:
 {
   "strengths": ["<specific strength 1>", "<specific strength 2>", "<specific strength 3>"],
-  "improvements": ["<specific improvement 1>", "<specific improvement 2>", "<specific improvement 3>"]
+  "improvements": ["<specific improvement 1>", "<specific improvement 2>", "<specific improvement 3>"],
+  "differences": "<2-3 sentences comparing Video A (original/benchmark) positively while giving constructive feedback for Video B>"
 }`
 
     const completion = await groq.chat.completions.create({
@@ -235,14 +264,16 @@ Provide specific, actionable insights. Respond ONLY with valid JSON:
     return {
       overallDifference: Math.round(avgB - avgA),
       strengths: parsed.strengths || ["Good overall performance"],
-      improvements: parsed.improvements || ["Continue practicing"]
+      improvements: parsed.improvements || ["Continue practicing"],
+      differences: parsed.differences || "Original pitch demonstrates excellent clarity with strong structure. Your pitch covers key points, though could improve grammar flow and strengthen delivery."
     }
   } catch (error) {
     console.error("Comparison error:", error)
     return {
       overallDifference: 0,
       strengths: ["Good overall performance"],
-      improvements: ["Continue practicing to improve consistency"]
+      improvements: ["Continue practicing to improve consistency"],
+      differences: "Original pitch demonstrates excellent clarity with strong structure. Your pitch covers key points, though could improve grammar flow and strengthen delivery."
     }
   }
 }
@@ -334,9 +365,50 @@ export async function POST(request: NextRequest) {
       return "Limited eye contact detected. Practice looking directly at camera while speaking."
     }
 
+    // Extract keywords from Video B transcript
+    const voiceBKeywords = extractKeywords(videoBResult.transcript)
+    
+    // Generate detailed factors for each metric
+    const metrics = [
+      { key: 'usageOfKeywords' as keyof Scores, name: 'Keywords' },
+      { key: 'pronunciation' as keyof Scores, name: 'Delivery' },
+      { key: 'fluency' as keyof Scores, name: 'Fluency' },
+      { key: 'objectionHandling' as keyof Scores, name: 'Addressing' },
+      { key: 'queryResolution' as keyof Scores, name: 'Solution' },
+      { key: 'eyeContact' as keyof Scores, name: 'Eye Contact' }
+    ]
+    
+    const generateFactors = (score: number, transcript: string): string[] => {
+      const factors: string[] = []
+      const wordCount = transcript.split(/\s+/).filter(w => w).length
+      factors.push(`Word count: Your Pitch (${wordCount} words)`)
+      
+      if (score >= 80) {
+        factors.push(`Your Pitch: Strong performance (${score}/100)`)
+      } else if (score >= 60) {
+        factors.push(`Your Pitch: Good performance with room for improvement (${score}/100)`)
+      } else if (score >= 40) {
+        factors.push(`Your Pitch: Moderate performance, needs improvement (${score}/100)`)
+      } else {
+        factors.push(`Your Pitch: Needs significant improvement (${score}/100)`)
+      }
+      
+      return factors
+    }
+    
+    const detailedNotes = metrics.map(metric => ({
+      metric: metric.name,
+      voiceAScore: videoAResult.scores[metric.key],
+      voiceBScore: videoBResult.scores[metric.key],
+      factors: generateFactors(videoBResult.scores[metric.key], videoBResult.transcript)
+    }))
+    
     const result: ComparisonResult = {
       videoA: videoAResult,
       videoB: videoBResult,
+      voiceBKeywords,
+      differences: comparison.differences,
+      detailedNotes,
       comparison,
       eyeContactAnalysis: {
         videoA: {

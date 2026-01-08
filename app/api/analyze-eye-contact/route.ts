@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
-import { writeFile, unlink } from "fs/promises"
+import { writeFile, unlink, readdir, mkdir } from "fs/promises"
 import { join } from "path"
 import { tmpdir } from "os"
 import ffmpeg from "fluent-ffmpeg"
-
-// Placeholder for MediaPipe integration
-// In production, this would use MediaPipe Face Mesh for accurate gaze detection
-// For now, we'll simulate eye contact analysis
+import { createHash } from "crypto"
 
 interface EyeContactResult {
   score: number
@@ -17,6 +14,7 @@ interface EyeContactResult {
   }
 }
 
+// Extract video metadata
 async function extractVideoMetadata(videoPath: string): Promise<{ duration: number; fps: number }> {
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(videoPath, (err, metadata) => {
@@ -46,111 +44,74 @@ async function extractVideoMetadata(videoPath: string): Promise<{ duration: numb
   })
 }
 
-async function analyzeEyeContactSimulated(videoPath: string): Promise<EyeContactResult> {
+// Extract frames from video at specified intervals
+async function extractFrames(videoPath: string, outputDir: string, framesPerSecond: number = 2): Promise<number> {
+  return new Promise((resolve, reject) => {
+    ffmpeg(videoPath)
+      .outputOptions([
+        `-vf fps=${framesPerSecond}`,
+        '-frame_pts 1'
+      ])
+      .output(join(outputDir, 'frame-%04d.jpg'))
+      .on('end', async () => {
+        // Count extracted frames
+        const files = await readdir(outputDir)
+        const frameCount = files.filter(f => f.startsWith('frame-') && f.endsWith('.jpg')).length
+        resolve(frameCount)
+      })
+      .on('error', (err) => reject(err))
+      .run()
+  })
+}
+
+// Analyze eye contact using frame-based heuristics
+// NOTE: This is a PLACEHOLDER implementation
+// For production, you need to implement actual computer vision:
+// - Use TensorFlow.js with Face Landmarks Detection model
+// - Use MediaPipe Face Mesh via WASM
+// - Or call a Python service with OpenCV + MediaPipe
+async function analyzeEyeContactFromFrames(framesDir: string, totalFrames: number): Promise<EyeContactResult> {
   try {
-    // Get video metadata
-    const { duration, fps } = await extractVideoMetadata(videoPath)
-    const totalFrames = Math.floor(duration * fps)
-
-    // TODO: Implement actual MediaPipe Face Mesh analysis
-    // This is a placeholder implementation that simulates eye contact detection
-    // In production, you would:
-    // 1. Extract frames from video using FFmpeg
-    // 2. Process each frame with MediaPipe Face Mesh
-    // 3. Calculate gaze direction using facial landmarks (468 points)
-    // 4. Determine if person is looking at camera (forward gaze)
-    // 5. Count frames with eye contact
-
-    // Simulated analysis (replace with actual MediaPipe implementation)
-    // For now, return a random score between 60-85 for testing
-    const eyeContactFrames = Math.floor(totalFrames * (0.6 + Math.random() * 0.25))
+    const files = await readdir(framesDir)
+    const frameFiles = files.filter(f => f.startsWith('frame-') && f.endsWith('.jpg'))
+    
+    // TODO: YOU MUST IMPLEMENT ACTUAL FACE DETECTION HERE
+    // Example workflow:
+    // 1. Load each frame image
+    // 2. Detect face using face detection model
+    // 3. Extract facial landmarks (especially eyes, nose, face orientation)
+    // 4. Calculate gaze vector from landmark positions
+    // 5. Determine if gaze is directed toward camera (threshold check)
+    // 6. Count frames where eye contact is detected
+    
+    // Current placeholder: Just returns 70% as default
+    // This will give same score to all videos - NOT REAL ANALYSIS
+    const eyeContactFrames = Math.floor(totalFrames * 0.7)
     const score = Math.round((eyeContactFrames / totalFrames) * 100)
+
+    console.log(`⚠️ PLACEHOLDER: Returning default 70% eye contact score`)
+    console.log(`Total frames analyzed: ${totalFrames}`)
+    console.log(`Eye contact frames (placeholder): ${eyeContactFrames}`)
 
     return {
       score,
       details: {
         totalFrames,
         eyeContactFrames,
-        faceDetectionRate: 0.95 // Simulated face detection rate
+        faceDetectionRate: 0.95 // Placeholder
       }
     }
   } catch (error) {
-    console.error('Eye contact analysis error:', error)
+    console.error('Frame analysis error:', error)
     throw error
   }
 }
 
-// Actual MediaPipe implementation (commented out - requires setup)
-/*
-import { FaceMesh } from '@mediapipe/face_mesh'
-import { Camera } from '@mediapipe/camera_utils'
-
-async function analyzeEyeContactMediaPipe(videoPath: string): Promise<EyeContactResult> {
-  const faceMesh = new FaceMesh({
-    locateFile: (file) => {
-      return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
-    }
-  })
-
-  faceMesh.setOptions({
-    maxNumFaces: 1,
-    refineLandmarks: true,
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5
-  })
-
-  let totalFrames = 0
-  let eyeContactFrames = 0
-  let facesDetected = 0
-
-  faceMesh.onResults((results) => {
-    totalFrames++
-    
-    if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-      facesDetected++
-      const landmarks = results.multiFaceLandmarks[0]
-      
-      // Eye landmarks indices
-      const leftEye = landmarks[468] // Left iris center
-      const rightEye = landmarks[473] // Right iris center
-      const noseTip = landmarks[1]
-      
-      // Calculate gaze direction
-      const gazeVector = {
-        x: (leftEye.x + rightEye.x) / 2 - noseTip.x,
-        y: (leftEye.y + rightEye.y) / 2 - noseTip.y,
-        z: (leftEye.z + rightEye.z) / 2 - noseTip.z
-      }
-      
-      // Check if looking at camera (forward gaze)
-      // Forward gaze has minimal x and y deviation
-      const isLookingAtCamera = Math.abs(gazeVector.x) < 0.1 && Math.abs(gazeVector.y) < 0.1
-      
-      if (isLookingAtCamera) {
-        eyeContactFrames++
-      }
-    }
-  })
-
-  // Process video frames
-  // ... (frame extraction and processing logic)
-
-  const score = Math.round((eyeContactFrames / totalFrames) * 100)
-  const faceDetectionRate = facesDetected / totalFrames
-
-  return {
-    score,
-    details: {
-      totalFrames,
-      eyeContactFrames,
-      faceDetectionRate
-    }
-  }
-}
-*/
+export const maxDuration = 60
 
 export async function POST(request: NextRequest) {
   let tempFilePath: string | null = null
+  let framesDir: string | null = null
 
   try {
     const formData = await request.formData()
@@ -175,11 +136,29 @@ export async function POST(request: NextRequest) {
     const bytes = await videoFile.arrayBuffer()
     const buffer = Buffer.from(bytes)
     
-    tempFilePath = join(tmpdir(), `video-${Date.now()}.${videoFile.name.split('.').pop()}`)
+    const timestamp = Date.now()
+    const hash = createHash('md5').update(buffer).digest('hex').substring(0, 8)
+    tempFilePath = join(tmpdir(), `video-${timestamp}-${hash}.${videoFile.name.split('.').pop()}`)
+    framesDir = join(tmpdir(), `frames-${timestamp}-${hash}`)
+    
     await writeFile(tempFilePath, buffer)
+    await mkdir(framesDir, { recursive: true })
 
-    // Analyze eye contact
-    const result = await analyzeEyeContactSimulated(tempFilePath)
+    console.log(`Processing video: ${tempFilePath}`)
+
+    // Get video metadata
+    const { duration, fps } = await extractVideoMetadata(tempFilePath)
+    console.log(`Video metadata: duration=${duration}s, fps=${fps}`)
+
+    // Extract frames (2 per second for analysis)
+    console.log(`Extracting frames to: ${framesDir}`)
+    const frameCount = await extractFrames(tempFilePath, framesDir, 2)
+    console.log(`Extracted ${frameCount} frames`)
+
+    // Analyze eye contact from frames
+    const result = await analyzeEyeContactFromFrames(framesDir, frameCount)
+    
+    console.log(`Eye contact analysis complete: score=${result.score}`)
 
     return NextResponse.json(result)
   } catch (error) {
@@ -192,12 +171,22 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   } finally {
-    // Clean up temp file
+    // Clean up temp files
     if (tempFilePath) {
       try {
         await unlink(tempFilePath)
       } catch (err) {
-        console.error("Failed to delete temp file:", err)
+        console.error("Failed to delete temp video file:", err)
+      }
+    }
+    
+    if (framesDir) {
+      try {
+        const files = await readdir(framesDir).catch(() => [])
+        await Promise.all(files.map(f => unlink(join(framesDir!, f)).catch(() => {})))
+        await import('fs').then(fs => fs.promises.rmdir(framesDir!).catch(() => {}))
+      } catch (err) {
+        console.error("Failed to delete frames directory:", err)
       }
     }
   }

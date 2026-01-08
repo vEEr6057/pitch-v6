@@ -1,6 +1,6 @@
 "use client"
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from "recharts"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { FC } from "react"
 
 // Define interface for the scores
@@ -16,11 +16,10 @@ interface Scores {
 // Define interface for component props
 interface ScoreChartProps {
   data: Scores
-  referenceData: Scores
 }
 
 // Use FC (FunctionComponent) type for better typing
-const ScoreChart: FC<ScoreChartProps> = ({ data, referenceData }) => {
+const ScoreChart: FC<ScoreChartProps> = ({ data }) => {
   // Convert scores object to array format for chart
   const metricLabels = {
     usageOfKeywords: "Keywords",
@@ -34,8 +33,7 @@ const ScoreChart: FC<ScoreChartProps> = ({ data, referenceData }) => {
   const chartData = Object.entries(data).map(([key, value]) => ({
     metric: metricLabels[key as keyof Scores],
     fullMetric: key,
-    videoB: value,
-    videoA: referenceData[key as keyof Scores]
+    score: value
   }));
   
   return (
@@ -68,11 +66,7 @@ const ScoreChart: FC<ScoreChartProps> = ({ data, referenceData }) => {
             width={30}
           />
           <Tooltip
-            formatter={(value: number, name: string) => {
-              if (name === 'videoB') return [`${value}`, "Your Pitch"]
-              if (name === 'videoA') return [`${value}`, "Benchmark"]
-              return [`${value}`, name]
-            }}
+            formatter={(value: number) => [`${value}`, "Your Pitch"]}
             contentStyle={{
               background: "var(--color-popover)",
               color: "var(--color-popover-foreground)",
@@ -91,7 +85,7 @@ const ScoreChart: FC<ScoreChartProps> = ({ data, referenceData }) => {
             }}
           />
           <Bar
-            dataKey="videoB"
+            dataKey="score"
             name="Your Pitch"
             fill="#10b981"
             radius={[4, 4, 0, 0]}
@@ -101,13 +95,6 @@ const ScoreChart: FC<ScoreChartProps> = ({ data, referenceData }) => {
               fontSize: 11,
               fontWeight: 600
             }}
-          />
-          <Bar
-            dataKey="videoA"
-            name="Benchmark"
-            fill="#94a3b8"
-            radius={[4, 4, 0, 0]}
-            opacity={0.3}
           />
         </BarChart>
       </ResponsiveContainer>
