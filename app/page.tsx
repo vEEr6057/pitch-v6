@@ -159,12 +159,15 @@ export default function Page() {
       
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
+          console.log('Data chunk received:', e.data.size, 'bytes')
           chunks.push(e.data)
         }
       }
       
       mediaRecorder.onstop = () => {
+        console.log('Recording stopped, total chunks:', chunks.length)
         const blob = new Blob(chunks, { type: mimeType })
+        console.log('Final blob size:', blob.size, 'bytes')
         const extension = mimeType.includes('webm') ? 'webm' : 'mp4'
         const file = new File([blob], `pitch-recording-${Date.now()}.${extension}`, { type: mimeType })
         
@@ -183,7 +186,9 @@ export default function Page() {
       }
       
       mediaRecorderRef.current = mediaRecorder
-      mediaRecorder.start()
+      mediaRecorder.start(100) // Request data every 100ms
+      
+      console.log('MediaRecorder started')
       
       // Auto-stop after 45 seconds
       setTimeout(() => {
