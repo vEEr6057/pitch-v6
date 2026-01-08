@@ -153,11 +153,17 @@ export default function Page() {
       const videoPreview = document.getElementById('videoPreview') as HTMLVideoElement
       if (videoPreview) {
         videoPreview.srcObject = stream
-        await videoPreview.play()
+        videoPreview.onloadedmetadata = () => {
+          videoPreview.play().catch(err => console.error('Play failed:', err))
+        }
+      } else {
+        console.warn('Video preview element not found')
       }
       
+      setIsRecording(true)
+      
       // Wait a bit for stream to stabilize
-      await new Promise(resolve => setTimeout(resolve, 200))
+      await new Promise(resolve => setTimeout(resolve, 300))
       
       // Find supported mimeType
       let mimeType = 'video/webm'
@@ -210,7 +216,6 @@ export default function Page() {
       
       mediaRecorderRef.current = mediaRecorder
       mediaRecorder.start()
-      setIsRecording(true)
       
       // Auto-stop after 45 seconds
       setTimeout(() => {
@@ -302,24 +307,36 @@ export default function Page() {
       const uploadVideoA = async () => {
         const formData = new FormData()
         formData.append('file', videoAFile)
+        console.log('Uploading Video A:', videoAFile.name, videoAFile.size, 'bytes')
         const response = await fetch('/api/upload-video', {
           method: 'POST',
           body: formData
         })
-        if (!response.ok) throw new Error('Failed to upload Video A')
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error('Video A upload error:', errorText)
+          throw new Error(`Failed to upload Video A: ${errorText}`)
+        }
         const data = await response.json()
+        console.log('Video A uploaded:', data.url)
         return data.url
       }
       
       const uploadVideoB = async () => {
         const formData = new FormData()
         formData.append('file', videoBFile)
+        console.log('Uploading Video B:', videoBFile.name, videoBFile.size, 'bytes')
         const response = await fetch('/api/upload-video', {
           method: 'POST',
           body: formData
         })
-        if (!response.ok) throw new Error('Failed to upload Video B')
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error('Video B upload error:', errorText)
+          throw new Error(`Failed to upload Video B: ${errorText}`)
+        }
         const data = await response.json()
+        console.log('Video B uploaded:', data.url)
         return data.url
       }
       
@@ -502,8 +519,9 @@ export default function Page() {
                       <video
                         id="videoPreview"
                         autoPlay
+                        playsInline
                         muted
-                        className="w-full h-full mirror"
+                        className="w-full h-full mirror object-cover"
                       />
                     </div>
                   )}
