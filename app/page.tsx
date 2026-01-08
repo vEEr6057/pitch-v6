@@ -463,7 +463,7 @@ export default function Page() {
         <div className="flex justify-center mb-8">
           <Button
             onClick={handleEvaluate}
-            disabled={!videoAFile || !videoBFile || isEvaluating}
+            disabled={!videoBFile || isEvaluating}
             className="w-full disabled:bg-gray-400 disabled:text-white disabled:opacity-100"
           >
             {isEvaluating ? "Evaluating..." : "Evaluate"}
