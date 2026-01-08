@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, ChangeEvent } from "react"
+import { upload } from '@vercel/blob/client'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
@@ -305,39 +306,33 @@ export default function Page() {
       console.log('Uploading videos to blob storage...')
       
       const uploadVideoA = async () => {
-        const formData = new FormData()
-        formData.append('file', videoAFile)
         console.log('Uploading Video A:', videoAFile.name, videoAFile.size, 'bytes')
-        const response = await fetch('/api/upload-video', {
-          method: 'POST',
-          body: formData
-        })
-        if (!response.ok) {
-          const errorText = await response.text()
-          console.error('Video A upload error:', errorText)
-          throw new Error(`Failed to upload Video A: ${errorText}`)
+        try {
+          const blob = await upload(videoAFile.name, videoAFile, {
+            access: 'public',
+            handleUploadUrl: '/api/upload-video',
+          })
+          console.log('Video A uploaded:', blob.url)
+          return blob.url
+        } catch (error) {
+          console.error('Video A upload error:', error)
+          throw new Error(`Failed to upload Video A: ${error instanceof Error ? error.message : 'Unknown error'}`)
         }
-        const data = await response.json()
-        console.log('Video A uploaded:', data.url)
-        return data.url
       }
       
       const uploadVideoB = async () => {
-        const formData = new FormData()
-        formData.append('file', videoBFile)
         console.log('Uploading Video B:', videoBFile.name, videoBFile.size, 'bytes')
-        const response = await fetch('/api/upload-video', {
-          method: 'POST',
-          body: formData
-        })
-        if (!response.ok) {
-          const errorText = await response.text()
-          console.error('Video B upload error:', errorText)
-          throw new Error(`Failed to upload Video B: ${errorText}`)
+        try {
+          const blob = await upload(videoBFile.name, videoBFile, {
+            access: 'public',
+            handleUploadUrl: '/api/upload-video',
+          })
+          console.log('Video B uploaded:', blob.url)
+          return blob.url
+        } catch (error) {
+          console.error('Video B upload error:', error)
+          throw new Error(`Failed to upload Video B: ${error instanceof Error ? error.message : 'Unknown error'}`)
         }
-        const data = await response.json()
-        console.log('Video B uploaded:', data.url)
-        return data.url
       }
       
       const [videoAUrl, videoBUrl] = await Promise.all([uploadVideoA(), uploadVideoB()])
