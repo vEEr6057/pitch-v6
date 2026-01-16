@@ -99,6 +99,7 @@ export default function Page() {
   const handleStartRecording = async () => {
     setShowGuidelines(true)
     setError(null)
+    setIsRecording(true) // Set this FIRST so video element renders
     
     try {
       // Stop any existing streams first
@@ -117,6 +118,9 @@ export default function Page() {
       
       videoStreamRef.current = stream
       
+      // Wait for video element to be rendered in DOM
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
       // Show preview
       const videoPreview = document.getElementById('videoPreview') as HTMLVideoElement
       if (videoPreview) {
@@ -127,8 +131,6 @@ export default function Page() {
       } else {
         console.warn('Video preview element not found')
       }
-      
-      setIsRecording(true)
       
       // Wait a bit for stream to stabilize
       await new Promise(resolve => setTimeout(resolve, 300))
