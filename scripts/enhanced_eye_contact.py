@@ -166,8 +166,16 @@ class EyeContactAnalyzer:
         head_threshold = thresholds.get('head', 20)  # ±20° for head pose
         gaze_threshold = thresholds.get('gaze', 15)  # ±15° for gaze
         
+        # Normalize pitch: solvePnP sometimes returns ±180° for 0° (facing forward)
+        # Convert to range [-180, 180] then normalize
+        if pitch > 150 or pitch < -150:
+            # If pitch is near ±180°, it's actually close to 0° (facing forward)
+            normalized_pitch = 180 - abs(pitch) if pitch > 0 else -180 - pitch
+        else:
+            normalized_pitch = pitch
+        
         # Check head pose (yaw and pitch should be near 0)
-        head_centered = abs(yaw) < head_threshold and abs(pitch) < head_threshold
+        head_centered = abs(yaw) < head_threshold and abs(normalized_pitch) < head_threshold
         
         # Check gaze direction (should be centered)
         gaze_centered = abs(gaze_h) < gaze_threshold and abs(gaze_v) < gaze_threshold
@@ -176,7 +184,7 @@ class EyeContactAnalyzer:
         # OR if head is very centered, gaze can be slightly off
         if head_centered and gaze_centered:
             return True
-        elif abs(yaw) < 10 and abs(pitch) < 10:
+        elif abs(yaw) < 10 and abs(normalized_pitch) < 10:
             # Very centered head, relax gaze threshold
             return abs(gaze_h) < 20 and abs(gaze_v) < 20
         else:
