@@ -19,28 +19,28 @@ interface EyeContactResult {
 
 async function analyzeEyeContactPython(videoPath: string): Promise<EyeContactResult> {
   try {
-    // Get the path to Python script
-    const scriptPath = join(process.cwd(), 'scripts', 'analyze_eye_contact.py')
-    
+    // Get the path to Python script (enhanced version with head pose + gaze)
+    const scriptPath = join(process.cwd(), 'scripts', 'enhanced_eye_contact.py')
+
     console.log(`Running Python eye contact analysis: ${scriptPath}`)
     console.log(`Video path: ${videoPath}`)
-    
+
     // Execute Python script
     const { stdout, stderr } = await execPromise(`python3 "${scriptPath}" "${videoPath}"`)
-    
+
     if (stderr) {
       console.error('Python stderr:', stderr)
     }
-    
+
     console.log('Python stdout:', stdout)
-    
+
     // Parse JSON output from Python
     const result = JSON.parse(stdout.trim())
-    
+
     if (result.error) {
       throw new Error(result.error)
     }
-    
+
     return {
       score: result.score || 0,
       details: result.details || {
@@ -82,12 +82,12 @@ export async function POST(request: NextRequest) {
     // Save video to temp file
     const bytes = await videoFile.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    
+
     const timestamp = Date.now()
     const hash = createHash('md5').update(buffer).digest('hex').substring(0, 8)
     const extension = videoFile.name.split('.').pop() || 'webm'
     tempFilePath = join(tmpdir(), `video-${timestamp}-${hash}.${extension}`)
-    
+
     await writeFile(tempFilePath, buffer)
 
     console.log(`Video saved to: ${tempFilePath}`)
@@ -95,14 +95,14 @@ export async function POST(request: NextRequest) {
 
     // Run Python analysis
     const result = await analyzeEyeContactPython(tempFilePath)
-    
+
     console.log(`Eye contact analysis complete: score=${result.score}`)
 
     return NextResponse.json(result)
   } catch (error) {
     console.error("Eye contact analysis error:", error)
     return NextResponse.json(
-      { 
+      {
         error: "Failed to analyze eye contact",
         details: error instanceof Error ? error.message : "Unknown error"
       },
