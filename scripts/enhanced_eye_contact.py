@@ -11,6 +11,12 @@ import numpy as np
 import sys
 import json
 import os
+import warnings
+
+# Suppress MediaPipe GPU warnings (server has no GPU, uses CPU only)
+warnings.filterwarnings('ignore', category=UserWarning)
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress TensorFlow logs
+os.environ['GLOG_minloglevel'] = '3'  # Suppress glog warnings
 
 
 class EyeContactAnalyzer:

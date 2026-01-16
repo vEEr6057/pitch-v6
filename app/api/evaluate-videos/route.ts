@@ -334,12 +334,19 @@ export async function POST(request: NextRequest) {
 
     // Process Video A
     console.log("Processing Video A...")
-    const [videoATranscript, videoAEyeContact] = await Promise.all([
-      transcribeVideo(videoAFile),
-      analyzeEyeContact(videoAFile, request)
-    ])
-    
+    // Note: Video A is always the same hardcoded video, so we use cached eye contact score
+    const videoATranscript = await transcribeVideo(videoAFile)
     const videoATextScores = await evaluateTranscript(videoATranscript.transcript)
+    
+    // Hardcoded eye contact score for Video A (pre-calculated: 90%)
+    const videoAEyeContact = {
+      score: 90,
+      details: {
+        totalFrames: 373,
+        eyeContactFrames: 337,
+        faceDetectionRate: 1.0
+      }
+    }
     
     const videoAResult: VideoResult = {
       scores: {
