@@ -34,11 +34,20 @@ interface EvaluationResult {
 }
 
 export default function Page() {
+  // VideoA (Reference) states
+  const [videoAOption, setVideoAOption] = useState<'default' | 'custom' | null>(null)
+  const [videoAUrl, setVideoAUrl] = useState<string>(VIDEO_A_URL)
+  const [videoATranscript, setVideoATranscript] = useState<string | null>(null)
+  const [isLoadingTranscript, setIsLoadingTranscript] = useState(false)
+  const videoAInputRef = useRef<HTMLInputElement>(null)
+  
   // VideoB (User) states
   const [videoBFile, setVideoBFile] = useState<File | null>(null)
   const [videoBUrl, setVideoBUrl] = useState<string | null>(null)
   const [videoBStatus, setVideoBStatus] = useState<"idle" | "processing" | "completed" | "error">("idle")
   const [isRecording, setIsRecording] = useState(false)
+  const [recordingDuration, setRecordingDuration] = useState(0)
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
   const videoBInputRef = useRef<HTMLInputElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const videoStreamRef = useRef<MediaStream | null>(null)
@@ -50,6 +59,71 @@ export default function Page() {
   
   // Recording guidelines
   const [showGuidelines, setShowGuidelines] = useState(false)
+
+  // Handle Video A - Use Default
+  const handleUseDefaultVideo = async () => {
+    setVideoAOption('default')
+    setVideoAUrl(VIDEO_A_URL)
+    await transcribeVideoA(VIDEO_A_URL)
+  }
+
+  // Handle Video A - Upload Custom
+  const handleUploadCustomVideo = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('video/')) {
+      setError("Please upload a valid video file")
+      return
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      setError("Video file is too large (max 50MB)")
+      return
+    }
+
+    setVideoAOption('custom')
+    setIsLoadingTranscript(true)
+    setError(null)
+
+    try {
+      // Upload Video A
+      const videoABlob = await upload(file.name, file, {
+        access: 'public',
+        handleUploadUrl: '/api/upload-video',
+      })
+      setVideoAUrl(videoABlob.url)
+      await transcribeVideoA(videoABlob.url)
+    } catch (err) {
+      console.error('Video A upload error:', err)
+      setError('Failed to upload Video A')
+      setIsLoadingTranscript(false)
+    }
+  }
+
+  // Transcribe Video A to get reference script
+  const transcribeVideoA = async (url: string) => {
+    setIsLoadingTranscript(true)
+    try {
+      const response = await fetch('/api/transcribe-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl: url })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to transcribe Video A')
+      }
+
+      const data = await response.json()
+      setVideoATranscript(data.transcript)
+    } catch (err) {
+      console.error('Transcription error:', err)
+      setError('Failed to transcribe Video A')
+    } finally {
+      setIsLoadingTranscript(false)
+    }
+  }
 
   // Handle VideoB upload
   const handleVideoBUpload = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -79,6 +153,7 @@ export default function Page() {
   const handleStartRecording = async () => {
     setShowGuidelines(true)
     setError(null)
+    setRecordingDuration(0)
     setIsRecording(true) // Set this FIRST so video element renders
     
     try {
@@ -170,6 +245,11 @@ export default function Page() {
       mediaRecorderRef.current = mediaRecorder
       mediaRecorder.start(100) // Request data every 100ms
       
+      // Start recording timer
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1)
+      }, 1000)
+      
       console.log('MediaRecorder started')
       
       // Auto-stop after 45 seconds
@@ -212,6 +292,12 @@ export default function Page() {
       mediaRecorderRef.current.stop()
       setIsRecording(false)
       setShowGuidelines(false)
+      
+      // Stop recording timer
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current)
+        recordingTimerRef.current = null
+      }
     }
   }
 
@@ -338,13 +424,100 @@ export default function Page() {
           </div>
         )}
 
+        {/* Video A Selection Section */}
+        <Card className="shadow-md border-0 mb-6">
+          <CardHeader>
+            <CardTitle className="text-balance text-base md:text-lg font-bold text-gray-800 text-center">
+              Step 1: Select Reference Video (Video A)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!videoAOption ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Button
+                  onClick={handleUseDefaultVideo}
+                  className="h-auto py-6 px-8 bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={isLoadingTranscript}
+                >
+                  <div className="text-center">
+                    <div className="text-lg font-semibold mb-1">Use Default Video</div>
+                    <div className="text-xs opacity-90">Pre-loaded reference pitch</div>
+                  </div>
+                </Button>
+                <Button
+                  onClick={() => videoAInputRef.current?.click()}
+                  className="h-auto py-6 px-8 bg-orange-600 hover:bg-orange-700 text-white"
+                  disabled={isLoadingTranscript}
+                >
+                  <div className="text-center">
+                    <div className="text-lg font-semibold mb-1">Upload From Device</div>
+                    <div className="text-xs opacity-90">Your own reference video</div>
+                  </div>
+                </Button>
+                <input
+                  ref={videoAInputRef}
+                  type="file"
+                  accept="video/mp4,video/webm,video/quicktime"
+                  onChange={handleUploadCustomVideo}
+                  className="hidden"
+                />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between bg-green-50 p-4 rounded-lg border border-green-200">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    <span className="font-medium text-green-900">
+                      {videoAOption === 'default' ? 'Using default reference video' : 'Custom video uploaded'}
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setVideoAOption(null)
+                      setVideoATranscript(null)
+                      setVideoAUrl(VIDEO_A_URL)
+                    }}
+                  >
+                    Change
+                  </Button>
+                </div>
+
+                {isLoadingTranscript && (
+                  <div className="flex items-center justify-center p-8">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+                      <p className="text-sm text-gray-600">Transcribing reference video...</p>
+                    </div>
+                  </div>
+                )}
+
+                {videoATranscript && !isLoadingTranscript && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                    <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                      <span>📜</span>
+                      Reference Script - Read this before recording your pitch
+                    </h3>
+                    <div className="bg-white p-4 rounded border border-blue-100 max-h-64 overflow-y-auto">
+                      <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+                        {videoATranscript}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Video Upload Section */}
         <div className="grid grid-cols-1 gap-6 mb-8">
           {/* VideoB - User */}
           <Card className="shadow-md border-0">
             <CardHeader>
               <CardTitle className="text-balance text-base md:text-lg font-bold text-gray-800 text-center">
-                Record Your Pitch (VideoB)
+                Step 2: Record Your Pitch (Video B)
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -367,14 +540,21 @@ export default function Page() {
                   
                   {/* Video Preview */}
                   {isRecording && (
-                    <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4">
+                    <div className="relative aspect-video bg-black rounded-lg overflow-hidden mb-4">
                       <video
                         id="videoPreview"
                         autoPlay
                         playsInline
                         muted
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover mirror"
                       />
+                      {/* Recording Timer Overlay */}
+                      <div className="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-full flex items-center gap-2 shadow-lg">
+                        <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+                        <span className="font-mono font-semibold text-lg">
+                          {Math.floor(recordingDuration / 60).toString().padStart(2, '0')}:{(recordingDuration % 60).toString().padStart(2, '0')}
+                        </span>
+                      </div>
                     </div>
                   )}
                   
