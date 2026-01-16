@@ -32,10 +32,6 @@ interface EvaluationResult {
   transcript: string
   referenceTranscript: string
 }
-    videoA: { score: number; feedback: string }
-    videoB: { score: number; feedback: string }
-  }
-}
 
 export default function Page() {
   // VideoB (User) states

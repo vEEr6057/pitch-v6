@@ -264,4 +264,12 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(result)
+  } catch (error) {
+    console.error('Evaluation error:', error)
+    return NextResponse.json(
+      { error: 'Failed to evaluate videos', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    )
+  }
+}
 
