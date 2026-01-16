@@ -3,14 +3,21 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { FC } from "react"
 
-// Define interface for the scores
+// Define interface for a single metric score
+interface MetricScore {
+  score: number
+  insights: string
+  suggestion: string
+}
+
+// Define interface for the scores object
 interface Scores {
-  usageOfKeywords: number
-  pronunciation: number
-  fluency: number
-  objectionHandling: number
-  queryResolution: number
-  eyeContact: number
+  usageOfKeywords: MetricScore
+  pronunciation: MetricScore
+  fluency: MetricScore
+  objectionHandling: MetricScore
+  queryResolution: MetricScore
+  eyeContact: MetricScore
 }
 
 // Define interface for component props
@@ -30,10 +37,10 @@ const ScoreChart: FC<ScoreChartProps> = ({ data }) => {
     eyeContact: "Eye Contact"
   }
   
-  const chartData = Object.entries(data).map(([key, value]) => ({
+  const chartData = Object.entries(data).map(([key, metricScore]) => ({
     metric: metricLabels[key as keyof Scores],
     fullMetric: key,
-    score: value
+    score: metricScore.score
   }));
   
   return (

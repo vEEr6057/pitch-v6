@@ -12,42 +12,26 @@ import { Upload, Video, Loader2, CheckCircle2, XCircle, AlertCircle } from "luci
 const VIDEO_A_URL = "https://n2ap5g7ig7wnxcyo.public.blob.vercel-storage.com/Untitled%20Video.mp4"
 
 // Define interfaces for video evaluation
-interface Scores {
-  usageOfKeywords: number
-  pronunciation: number
-  fluency: number
-  objectionHandling: number
-  queryResolution: number
-  eyeContact: number // NEW metric
+interface MetricScore {
+  score: number
+  insights: string
+  suggestion: string
 }
 
-interface VideoResult {
+interface Scores {
+  usageOfKeywords: MetricScore
+  pronunciation: MetricScore
+  fluency: MetricScore
+  objectionHandling: MetricScore
+  queryResolution: MetricScore
+  eyeContact: MetricScore
+}
+
+interface EvaluationResult {
   scores: Scores
   transcript: string
-  eyeContactDetails?: {
-    totalFrames: number
-    eyeContactFrames: number
-    faceDetectionRate: number
-  }
+  referenceTranscript: string
 }
-
-interface ComparisonResult {
-  videoA: VideoResult
-  videoB: VideoResult
-  voiceBKeywords: string[]
-  differences: string
-  detailedNotes: {
-    metric: string
-    voiceAScore: number
-    voiceBScore: number
-    factors: string[]
-  }[]
-  comparison: {
-    overallDifference: number
-    strengths: string[]
-    improvements: string[]
-  }
-  eyeContactAnalysis: {
     videoA: { score: number; feedback: string }
     videoB: { score: number; feedback: string }
   }
@@ -65,7 +49,7 @@ export default function Page() {
   
   // Evaluation states
   const [isEvaluating, setIsEvaluating] = useState(false)
-  const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null)
+  const [evaluationResult, setEvaluationResult] = useState<EvaluationResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   
   // Recording guidelines
@@ -90,7 +74,7 @@ export default function Page() {
     setVideoBUrl(URL.createObjectURL(file))
     setVideoBStatus("processing")
     setError(null)
-    setComparisonResult(null)
+    setEvaluationResult(null)
 
     setTimeout(() => setVideoBStatus("completed"), 500)
   }
@@ -259,7 +243,7 @@ export default function Page() {
     setVideoBFile(null)
     setVideoBUrl(null)
     setVideoBStatus("idle")
-    setComparisonResult(null)
+    setEvaluationResult(null)
     if (videoBInputRef.current) {
       videoBInputRef.current.value = ""
     }
@@ -274,7 +258,7 @@ export default function Page() {
 
     setIsEvaluating(true)
     setError(null)
-    setComparisonResult(null)
+    setEvaluationResult(null)
 
     try {
       // Step 1: Upload only Video B (Video A is hardcoded)
@@ -315,7 +299,7 @@ export default function Page() {
       }
 
       const result = await response.json()
-      setComparisonResult(result)
+      setEvaluationResult(result)
     } catch (err) {
       console.error('Evaluation error:', err)
       setError(err instanceof Error ? err.message : 'Failed to evaluate videos')
@@ -478,16 +462,16 @@ export default function Page() {
         </div>
 
         {/* Results */}
-        {comparisonResult && (
+        {evaluationResult && (
           <>
             <Card className="shadow-md border-0">
               <CardHeader className="pb-4">
                 <CardTitle className="text-balance text-base md:text-lg font-bold text-gray-800 text-center">
-                  Performance Comparison
+                  Performance Evaluation
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <ScoreChart data={comparisonResult.videoB.scores} />
+                <ScoreChart data={evaluationResult.scores} />
               </CardContent>
             </Card>
 
@@ -499,55 +483,55 @@ export default function Page() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Show Your Pitch Keywords Only */}
-                <div className="mb-6">
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <h3 className="font-semibold text-green-900 mb-3">Your Pitch Keywords</h3>
-                    <ul className="space-y-1">
-                      {comparisonResult.voiceBKeywords && comparisonResult.voiceBKeywords.length > 0 ? (
-                        comparisonResult.voiceBKeywords.map((keyword, idx) => (
-                          <li key={idx} className="text-sm text-green-800">• {keyword}</li>
-                        ))
-                      ) : (
-                        <li className="text-sm text-green-600 italic">Keywords not extracted</li>
-                      )}
-                    </ul>
-                  </div>
-                </div>
+                {/* Reference Transcript */}
+                <details className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 cursor-pointer">
+                  <summary className="font-semibold text-blue-900 mb-2 cursor-pointer">
+                    Reference Transcript (Video A)
+                  </summary>
+                  <p className="text-sm text-blue-800 whitespace-pre-wrap mt-2">
+                    {evaluationResult.referenceTranscript}
+                  </p>
+                </details>
 
-                {/* Key Differences */}
-                {comparisonResult.differences && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-                    <h3 className="font-semibold text-amber-900 mb-2">Key Differences</h3>
-                    <p className="text-sm text-amber-800 whitespace-pre-wrap">{comparisonResult.differences}</p>
-                  </div>
-                )}
-
-                {/* Score comparison by metric */}
-                {comparisonResult.detailedNotes.map((note, index) => (
-                  <div key={index} className="border-b pb-6 last:border-b-0">
-                    <h3 className="font-semibold text-lg mb-4 text-gray-900">{note.metric}</h3>
-                    
-                    {/* Combined Score and Analysis Box */}
-                    <div className="bg-green-50 p-5 rounded-lg border border-green-200">
-                      {/* Score Display */}
-                      <div className="flex items-center justify-between mb-4">
-                        <span className="text-sm font-semibold text-green-900">Your Pitch</span>
-                        <span className="text-4xl font-bold text-green-700">{note.voiceBScore}</span>
-                      </div>
+                {/* Score breakdown by metric with insights and suggestions */}
+                {Object.entries(evaluationResult.scores).map(([key, metric]) => {
+                  const metricLabels: Record<string, string> = {
+                    usageOfKeywords: 'Usage of Keywords',
+                    pronunciation: 'Pronunciation',
+                    fluency: 'Fluency',
+                    objectionHandling: 'Objection Handling',
+                    queryResolution: 'Query Resolution',
+                    eyeContact: 'Eye Contact'
+                  }
+                  
+                  return (
+                    <div key={key} className="border-b pb-6 last:border-b-0">
+                      <h3 className="font-semibold text-lg mb-4 text-gray-900">{metricLabels[key]}</h3>
                       
-                      {/* Analysis Factors */}
-                      <div className="border-t border-green-200 pt-3">
-                        <h4 className="text-xs font-semibold text-green-800 mb-2 uppercase tracking-wide">Analysis Factors:</h4>
-                        <ul className="space-y-1.5">
-                          {note.factors.map((factor, fIdx) => (
-                            <li key={fIdx} className="text-sm text-green-900/80">• {factor}</li>
-                          ))}
-                        </ul>
+                      {/* Combined Score and Analysis Box */}
+                      <div className="bg-green-50 p-5 rounded-lg border border-green-200">
+                        {/* Score Display */}
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="text-sm font-semibold text-green-900">Your Pitch</span>
+                          <span className="text-4xl font-bold text-green-700">{metric.score}</span>
+                        </div>
+                        
+                        {/* Analysis Factors */}
+                        <div className="border-t border-green-200 pt-3 space-y-3">
+                          <div>
+                            <h4 className="text-xs font-semibold text-green-800 mb-2 uppercase tracking-wide">Insights:</h4>
+                            <p className="text-sm text-green-900/90">{metric.insights}</p>
+                          </div>
+                          
+                          <div>
+                            <h4 className="text-xs font-semibold text-green-800 mb-2 uppercase tracking-wide">Suggestion:</h4>
+                            <p className="text-sm text-green-900/90">{metric.suggestion}</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </CardContent>
             </Card>
           </>
