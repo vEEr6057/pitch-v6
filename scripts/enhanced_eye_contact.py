@@ -210,10 +210,16 @@ class EyeContactAnalyzer:
         
         # Get video FPS
         video_fps = cap.get(cv2.CAP_PROP_FPS)
-        if video_fps <= 0:
+        if video_fps <= 0 or video_fps > 120:
+            # Invalid FPS or unrealistic value (webm sometimes reports 1000+)
             video_fps = 30  # Default fallback
         
         frame_skip = max(1, int(video_fps / sample_fps))
+        
+        # Safety check: don't skip more than 10 frames at a time
+        # This ensures we get at least 1 frame per second even with bad metadata
+        if frame_skip > 10:
+            frame_skip = 4  # Sample at ~7.5 FPS for 30fps video
         
         total_frames = 0
         face_detected_frames = 0
