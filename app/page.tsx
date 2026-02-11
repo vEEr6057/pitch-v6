@@ -495,11 +495,24 @@ export default function Page() {
 
                 {videoATranscript && !isLoadingTranscript && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                    <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                      <span>📜</span>
-                      Reference Script - Read this before recording your pitch
+                    <h3 className="font-semibold text-blue-900 mb-4">
+                      Reference Video and Script - Watch and read this before recording your pitch
                     </h3>
+                    
+                    {/* Video A Player */}
+                    <div className="mb-4">
+                      <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                        <video
+                          src={videoAUrl}
+                          controls
+                          className="w-full h-full"
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Transcript */}
                     <div className="bg-white p-4 rounded border border-blue-100 max-h-64 overflow-y-auto">
+                      <h4 className="font-semibold text-gray-900 mb-2">Transcript:</h4>
                       <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
                         {videoATranscript}
                       </p>
@@ -526,14 +539,14 @@ export default function Page() {
                   {/* Recording Guidelines */}
                   {showGuidelines && (
                     <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
-                      <h4 className="font-semibold text-sm mb-2">📹 Recording Best Practices</h4>
-                      <ul className="text-xs space-y-1">
-                        <li>✅ Face close to camera (30-40% of frame)</li>
-                        <li>✅ Good lighting (face camera, not window)</li>
-                        <li>✅ Stable camera position</li>
-                        <li>✅ Look directly at camera</li>
-                        <li>✅ Natural eye contact</li>
-                        <li>✅ Clean background</li>
+                      <h4 className="font-semibold text-sm mb-2">Recording Best Practices</h4>
+                      <ul className="text-xs space-y-1 list-disc list-inside">
+                        <li>Face close to camera (30-40% of frame)</li>
+                        <li>Good lighting (face camera, not window)</li>
+                        <li>Stable camera position</li>
+                        <li>Look directly at camera</li>
+                        <li>Natural eye contact</li>
+                        <li>Clean background</li>
                       </ul>
                     </div>
                   )}
