@@ -187,6 +187,10 @@ Respond ONLY with a valid JSON object in this exact format (no markdown, no extr
       cleanedResponse = cleanedResponse.replace(/```\n?/g, "")
     }
     
+    // Fix common JSON malformations from LLM responses
+    // Replace "] at end of object values with "}
+    cleanedResponse = cleanedResponse.replace(/"]\s*\n?\s*}/g, '"}')
+    
     // Remove trailing commas before closing braces/brackets (common JSON error)
     cleanedResponse = cleanedResponse.replace(/,(\s*[}\]])/g, '$1')
     
