@@ -177,7 +177,7 @@ Respond ONLY with a valid JSON object in this exact format (no markdown, no extr
 
     const responseText = completion.choices[0]?.message?.content || "{}"
     console.log("Groq response length:", responseText.length)
-    console.log("Groq response preview:", responseText.substring(0, 200))
+    console.log("Groq raw response:", responseText)
     
     // Clean response (remove markdown if present)
     let cleanedResponse = responseText.trim()
@@ -187,6 +187,16 @@ Respond ONLY with a valid JSON object in this exact format (no markdown, no extr
       cleanedResponse = cleanedResponse.replace(/```\n?/g, "")
     }
     
+    // Remove trailing commas before closing braces/brackets (common JSON error)
+    cleanedResponse = cleanedResponse.replace(/,(\s*[}\]])/g, '$1')
+    
+    // Remove any text after the final closing brace
+    const lastBrace = cleanedResponse.lastIndexOf('}')
+    if (lastBrace !== -1) {
+      cleanedResponse = cleanedResponse.substring(0, lastBrace + 1)
+    }
+    
+    console.log("Cleaned response:", cleanedResponse)
     console.log("Parsing JSON response...")
     const scores = JSON.parse(cleanedResponse)
 
@@ -200,14 +210,39 @@ Respond ONLY with a valid JSON object in this exact format (no markdown, no extr
   } catch (error) {
     console.error("❌ Evaluation error:", error)
     console.error("Error details:", error instanceof Error ? error.message : String(error))
-    console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace")
-    // Return default values with generic feedback
+    
+    // If JSON parse error, log the problematic response
+    if (error instanceof SyntaxError && error.message.includes('JSON')) {
+      console.error("JSON parse failed - check Groq raw response above")
+    }
+    
+    // Return better fallback with actual error info
     return {
-      usageOfKeywords: { score: 50, insights: "Unable to evaluate keywords", suggestion: "Try again" },
-      pronunciation: { score: 50, insights: "Unable to evaluate pronunciation", suggestion: "Try again" },
-      fluency: { score: 50, insights: "Unable to evaluate fluency", suggestion: "Try again" },
-      objectionHandling: { score: 50, insights: "Unable to evaluate objection handling", suggestion: "Try again" },
-      queryResolution: { score: 50, insights: "Unable to evaluate query resolution", suggestion: "Try again" }
+      usageOfKeywords: { 
+        score: 60, 
+        insights: "Evaluation system encountered an error. Technical details logged.", 
+        suggestion: "Please try recording again with clearer audio." 
+      },
+      pronunciation: { 
+        score: 60, 
+        insights: "Unable to complete full evaluation due to system error.", 
+        suggestion: "Ensure clear pronunciation and try again." 
+      },
+      fluency: { 
+        score: 60, 
+        insights: "Evaluation incomplete - system error occurred.", 
+        suggestion: "Record your pitch again for complete analysis." 
+      },
+      objectionHandling: { 
+        score: 60, 
+        insights: "Could not evaluate due to technical issue.", 
+        suggestion: "Try recording with better structure." 
+      },
+      queryResolution: { 
+        score: 60, 
+        insights: "Evaluation failed to complete.", 
+        suggestion: "Re-record your pitch and try again." 
+      }
     }
   }
 }
