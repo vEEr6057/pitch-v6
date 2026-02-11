@@ -24,7 +24,7 @@ interface Scores {
   fluency: MetricScore
   objectionHandling: MetricScore
   queryResolution: MetricScore
-  eyeContact: MetricScore
+  // eyeContact: MetricScore // Commented out - not needed for Vercel deployment
 }
 
 interface EvaluationResult {

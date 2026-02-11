@@ -21,7 +21,7 @@ interface Scores {
   fluency: MetricScore
   objectionHandling: MetricScore
   queryResolution: MetricScore
-  eyeContact: MetricScore
+  // eyeContact: MetricScore // Commented out - not needed for Vercel deployment
 }
 
 interface EvaluationResult {
@@ -60,7 +60,9 @@ async function transcribeVideo(videoFile: File): Promise<{ transcript: string; d
   }
 }
 
-// Helper function to analyze eye contact (placeholder - actual MediaPipe implementation in separate endpoint)
+// COMMENTED OUT: Eye contact analysis not needed for Vercel deployment
+// Keeping code for future use if needed
+/*
 async function analyzeEyeContact(videoFile: File, request?: NextRequest): Promise<{ score: number; details: any }> {
   try {
     // Get base URL from environment or request headers
@@ -109,13 +111,10 @@ async function analyzeEyeContact(videoFile: File, request?: NextRequest): Promis
     }
   }
 }
+*/
 
 // Helper function to evaluate transcript with insights and suggestions
-async function evaluateTranscript(
-  transcript: string, 
-  eyeContactScore: number,
-  eyeContactDetails: { totalFrames: number; eyeContactFrames: number; faceDetectionRate: number }
-): Promise<Scores> {
+async function evaluateTranscript(transcript: string): Promise<Scores> {
   try {
     const prompt = `You are an expert pharmaceutical sales pitch evaluator. Analyze the following sales pitch transcript and provide comprehensive evaluation with scores (0-100), insights, and suggestions.
 
@@ -124,13 +123,7 @@ TRANSCRIPT:
 ${transcript}
 """
 
-EYE CONTACT DATA (from video analysis):
-- Score: ${eyeContactScore}/100
-- Frames analyzed: ${eyeContactDetails.totalFrames}
-- Frames with eye contact: ${eyeContactDetails.eyeContactFrames}
-- Detection rate: ${(eyeContactDetails.faceDetectionRate * 100).toFixed(0)}%
-
-TASK: Evaluate across 6 metrics. For each metric provide:
+TASK: Evaluate across 5 metrics. For each metric provide:
 1. score (0-100): Numerical score
 2. insights (1-2 sentences): Analysis of performance
 3. suggestion (1 sentence): Actionable improvement
@@ -141,7 +134,6 @@ METRICS:
 3. Fluency: How smooth and natural is the flow of ideas? Are there logical transitions between points?
 4. Objection Handling: Does the pitch anticipate and address potential customer concerns or objections?
 5. Query Resolution: How well does the pitch provide clear answers and solutions to potential questions?
-6. Eye Contact: Based on the eye contact data provided above, evaluate camera engagement and visual connection.
 
 SCORING GUIDANCE:
 - 90-100: Excellent - Professional, complete, highly effective
@@ -156,11 +148,8 @@ Respond ONLY with a valid JSON object in this exact format (no markdown, no extr
   "pronunciation": {"score": 70, "insights": "...", "suggestion": "..."},
   "fluency": {"score": 72, "insights": "...", "suggestion": "..."},
   "objectionHandling": {"score": 68, "insights": "...", "suggestion": "..."},
-  "queryResolution": {"score": 70, "insights": "...", "suggestion": "..."},
-  "eyeContact": {"score": ${eyeContactScore}, "insights": "...", "suggestion": "..."}
-}
-
-IMPORTANT: For eyeContact, use the provided score (${eyeContactScore}) and generate insights/suggestions based on that score and the frame data.`
+  "queryResolution": {"score": 70, "insights": "...", "suggestion": "..."}
+}`
 
     const completion = await groq.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
@@ -182,7 +171,7 @@ IMPORTANT: For eyeContact, use the provided score (${eyeContactScore}) and gener
     const scores = JSON.parse(cleanedResponse)
 
     // Validate structure
-    if (!scores.usageOfKeywords || !scores.eyeContact) {
+    if (!scores.usageOfKeywords || !scores.queryResolution) {
       throw new Error("Invalid response structure from AI")
     }
 
@@ -195,8 +184,7 @@ IMPORTANT: For eyeContact, use the provided score (${eyeContactScore}) and gener
       pronunciation: { score: 50, insights: "Unable to evaluate pronunciation", suggestion: "Try again" },
       fluency: { score: 50, insights: "Unable to evaluate fluency", suggestion: "Try again" },
       objectionHandling: { score: 50, insights: "Unable to evaluate objection handling", suggestion: "Try again" },
-      queryResolution: { score: 50, insights: "Unable to evaluate query resolution", suggestion: "Try again" },
-      eyeContact: { score: eyeContactScore, insights: "Video analysis completed", suggestion: "Maintain consistent camera focus" }
+      queryResolution: { score: 50, insights: "Unable to evaluate query resolution", suggestion: "Try again" }
     }
   }
 }
@@ -244,18 +232,11 @@ export async function POST(request: NextRequest) {
     console.log("Processing Video A (reference transcript only)...")
     const videoATranscript = await transcribeVideo(videoAFile)
 
-    // Process Video B - full evaluation
+    // Process Video B - transcription and evaluation (no video analysis)
     console.log("Processing Video B...")
-    const [videoBTranscript, videoBEyeContact] = await Promise.all([
-      transcribeVideo(videoBFile),
-      analyzeEyeContact(videoBFile, request)
-    ])
+    const videoBTranscript = await transcribeVideo(videoBFile)
     
-    const videoBScores = await evaluateTranscript(
-      videoBTranscript.transcript,
-      videoBEyeContact.score,
-      videoBEyeContact.details
-    )
+    const videoBScores = await evaluateTranscript(videoBTranscript.transcript)
     
     const result: EvaluationResult = {
       scores: videoBScores,

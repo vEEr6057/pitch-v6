@@ -1,24 +1,10 @@
 {
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install && pip install opencv-python-headless mediapipe numpy",
   "functions": {
     "app/api/evaluate-videos/route.ts": {
-      "maxDuration": 300,
-      "memory": 3008
+      "maxDuration": 300
     },
     "app/api/analyze-eye-contact/route.ts": {
-      "maxDuration": 60,
-      "memory": 1024
-    },
-    "app/api/extract-audio/route.ts": {
-      "maxDuration": 60,
-      "memory": 1024
-    }
-  },
-  "build": {
-    "env": {
-      "PYTHON_VERSION": "3.11"
+      "maxDuration": 60
     }
   }
 }

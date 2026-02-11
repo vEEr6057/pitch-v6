@@ -17,7 +17,7 @@ interface Scores {
   fluency: MetricScore
   objectionHandling: MetricScore
   queryResolution: MetricScore
-  eyeContact: MetricScore
+  // eyeContact: MetricScore // Commented out - not needed for Vercel deployment
 }
 
 // Define interface for component props
@@ -33,8 +33,8 @@ const ScoreChart: FC<ScoreChartProps> = ({ data }) => {
     pronunciation: "Delivery",
     fluency: "Fluency",
     objectionHandling: "Addressing",
-    queryResolution: "Solution",
-    eyeContact: "Eye Contact"
+    queryResolution: "Solution"
+    // eyeContact: "Eye Contact" // Commented out - not needed for Vercel deployment
   }
   
   const chartData = Object.entries(data).map(([key, metricScore]) => ({
