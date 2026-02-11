@@ -3,7 +3,7 @@
     "app/api/evaluate-videos/route.ts": {
       "maxDuration": 300
     },
-    "app/api/analyze-eye-contact/route.ts": {
+    "app/api/transcribe-video/route.ts": {
       "maxDuration": 60
     }
   }

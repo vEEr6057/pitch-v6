@@ -33,12 +33,16 @@ interface EvaluationResult {
 // Helper function to transcribe video
 async function transcribeVideo(videoFile: File): Promise<{ transcript: string; duration: number }> {
   try {
+    console.log(`Transcribing video: ${videoFile.name}, size: ${videoFile.size} bytes`)
+    
     // Convert File to Buffer
     const arrayBuffer = await videoFile.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
     
+    console.log("Uploading to AssemblyAI...")
     // Upload to AssemblyAI
     const uploadUrl = await assemblyai.files.upload(buffer)
+    console.log("Upload successful, transcribing...")
     
     // Transcribe
     const transcript = await assemblyai.transcripts.transcribe({
@@ -50,12 +54,14 @@ async function transcribeVideo(videoFile: File): Promise<{ transcript: string; d
       throw new Error(transcript.error || "Transcription failed")
     }
     
+    console.log(`✅ Transcription complete: ${transcript.text?.length || 0} characters`)
+    
     return {
       transcript: transcript.text || "",
       duration: (transcript.audio_duration || 0) / 1000
     }
   } catch (error) {
-    console.error("Transcription error:", error)
+    console.error("❌ Transcription error:", error)
     throw new Error(`Failed to transcribe video: ${error instanceof Error ? error.message : "Unknown error"}`)
   }
 }
@@ -116,6 +122,16 @@ async function analyzeEyeContact(videoFile: File, request?: NextRequest): Promis
 // Helper function to evaluate transcript with insights and suggestions
 async function evaluateTranscript(transcript: string): Promise<Scores> {
   try {
+    // Log transcript for debugging
+    console.log("=== EVALUATION DEBUG ===")
+    console.log("Transcript length:", transcript.length)
+    console.log("Transcript preview:", transcript.substring(0, 100))
+    console.log("Groq API Key exists:", !!process.env.GROQ_API_KEY)
+    
+    if (!transcript || transcript.length < 10) {
+      throw new Error("Transcript is empty or too short")
+    }
+
     const prompt = `You are an expert pharmaceutical sales pitch evaluator. Analyze the following sales pitch transcript and provide comprehensive evaluation with scores (0-100), insights, and suggestions.
 
 TRANSCRIPT:
@@ -151,6 +167,7 @@ Respond ONLY with a valid JSON object in this exact format (no markdown, no extr
   "queryResolution": {"score": 70, "insights": "...", "suggestion": "..."}
 }`
 
+    console.log("Calling Groq API...")
     const completion = await groq.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
       model: "llama-3.3-70b-versatile",
@@ -159,6 +176,8 @@ Respond ONLY with a valid JSON object in this exact format (no markdown, no extr
     })
 
     const responseText = completion.choices[0]?.message?.content || "{}"
+    console.log("Groq response length:", responseText.length)
+    console.log("Groq response preview:", responseText.substring(0, 200))
     
     // Clean response (remove markdown if present)
     let cleanedResponse = responseText.trim()
@@ -168,6 +187,7 @@ Respond ONLY with a valid JSON object in this exact format (no markdown, no extr
       cleanedResponse = cleanedResponse.replace(/```\n?/g, "")
     }
     
+    console.log("Parsing JSON response...")
     const scores = JSON.parse(cleanedResponse)
 
     // Validate structure
@@ -175,9 +195,12 @@ Respond ONLY with a valid JSON object in this exact format (no markdown, no extr
       throw new Error("Invalid response structure from AI")
     }
 
+    console.log("✅ Evaluation successful")
     return scores
   } catch (error) {
-    console.error("Evaluation error:", error)
+    console.error("❌ Evaluation error:", error)
+    console.error("Error details:", error instanceof Error ? error.message : String(error))
+    console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace")
     // Return default values with generic feedback
     return {
       usageOfKeywords: { score: 50, insights: "Unable to evaluate keywords", suggestion: "Try again" },
