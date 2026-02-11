@@ -171,41 +171,32 @@ Respond ONLY with a valid JSON object in this exact format (no markdown, no extr
     const completion = await groq.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
       model: "llama-3.3-70b-versatile",
-      temperature: 0.3,
-      max_tokens: 2000,
+      temperature: 0,
+      response_format: { type: "json_object" },
     })
 
     const responseText = completion.choices[0]?.message?.content || "{}"
     console.log("Groq response length:", responseText.length)
     console.log("Groq raw response:", responseText)
     
-    // Clean response (remove markdown if present)
-    let cleanedResponse = responseText.trim()
-    if (cleanedResponse.startsWith("```json")) {
-      cleanedResponse = cleanedResponse.replace(/```json\n?/g, "").replace(/```\n?/g, "")
-    } else if (cleanedResponse.startsWith("```")) {
-      cleanedResponse = cleanedResponse.replace(/```\n?/g, "")
+    // Defensive check before parsing
+    if (!responseText.trim().startsWith("{")) {
+      console.error("LLM did not return JSON:", responseText)
+      throw new Error("AI response was not JSON")
     }
     
-    // Fix common JSON malformations from LLM responses
-    // Replace "] at end of object values with "}
-    cleanedResponse = cleanedResponse.replace(/"]\s*\n?\s*}/g, '"}')
-    
-    // Remove trailing commas before closing braces/brackets (common JSON error)
-    cleanedResponse = cleanedResponse.replace(/,(\s*[}\]])/g, '$1')
-    
-    // Remove any text after the final closing brace
-    const lastBrace = cleanedResponse.lastIndexOf('}')
-    if (lastBrace !== -1) {
-      cleanedResponse = cleanedResponse.substring(0, lastBrace + 1)
-    }
-    
-    console.log("Cleaned response:", cleanedResponse)
-    console.log("Parsing JSON response...")
-    const scores = JSON.parse(cleanedResponse)
+    console.log("Parsing structured JSON response...")
+    const scores: Scores = JSON.parse(responseText)
 
-    // Validate structure
-    if (!scores.usageOfKeywords || !scores.queryResolution) {
+    // Hard validation - production-safe
+    if (
+      !scores ||
+      !scores.usageOfKeywords ||
+      !scores.pronunciation ||
+      !scores.fluency ||
+      !scores.objectionHandling ||
+      !scores.queryResolution
+    ) {
       throw new Error("Invalid response structure from AI")
     }
 
